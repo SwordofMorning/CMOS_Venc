@@ -114,12 +114,17 @@ function func_map()
     fi
 }
 
-function cf()
+function func_cf()
 {
     cd ${ProjectPath}
     echo_info "run Clang-Format."
     find src -name '*.cpp' -o -name '*.h' -o -name '*.c' | \
         xargs -I{} bash -c 'clang-format-16 -style=file {} | diff -u -L "{}" -L "{}" {} -' > .clang-format.diff
+}
+
+function func_cp()
+{
+    cp ${ProjectPath}/build/bin/app_venc /var/lib/tftpboot/
 }
 
 #################### Section 4 : Main ####################
@@ -132,7 +137,8 @@ function main()
     echo_info "Output: ${ProjectPath}/${BuildPath}"
 
     func_map ${1}
-    cf
+    func_cf
+    func_cp
 }
 
 main $1

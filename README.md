@@ -1,0 +1,1 @@
+Camera(VII) → Video Processing(VPP) → Video Encoder(VENC) → Stream Output
