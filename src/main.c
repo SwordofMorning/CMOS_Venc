@@ -59,7 +59,6 @@
 extern vs_int8_t g_bus_id[VII_MAX_ROUTE_NUM];
 extern sample_sensor_type_e g_sensor_type[VII_MAX_ROUTE_NUM];
 extern vs_bool_t g_nr_3d;
-
 static vs_vii_vpp_mode_e g_vii_vpp_mode = E_VII_OFFLINE_VPP_ONLINE;
 static volatile sig_atomic_t g_stop_flag = 0;
 static vs_uint32_t g_comm_vb_cnt = 30;

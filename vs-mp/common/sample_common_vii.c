@@ -300,6 +300,12 @@ static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_48m_linear_attr = {
     .mipi_attr.lane_type = E_MIPI_LANE4,
     .mipi_attr.crop_info = {VS_TRUE, {0, 0, 8000, 6000}},
 };
+
+static vs_mipi_rx_dev_attr_s s_bg0651_mipi_4lane_12bit_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 800, 600}},
+};
 /*******************************************************
                     isp attr
 *******************************************************/
@@ -878,6 +884,14 @@ static vs_isp_comm_attr_s s_imx586_2m_120fps_10bit_linear_isp_attr = {
     .wdr_mode = E_WDR_MODE_NONE,
     .sensor_mode = 9,
 };
+
+static vs_isp_comm_attr_s s_bg0651_100fps_12bit_linear_isp_attr = {
+    .sensor_size = {800, 600},
+    .frame_rate = 100,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
 /*******************************************************
                    sensor cfg
 *******************************************************/
@@ -1334,8 +1348,14 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         &s_imx586_mipi_4lane_10bit_2m_linear_attr,
         &s_imx586_2m_120fps_10bit_linear_isp_attr
     },
+    // bg0651
+    {"bg0651", BG0651_MIPI_100FPS_12BIT, "BG0651_MIPI_100FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_bg0651_mipi_4lane_12bit_linear_attr,
+        &s_bg0651_100fps_12bit_linear_isp_attr
+    },
 };
-
 
 /*******************************************************
                 static sensor cfg function

@@ -176,6 +176,8 @@ typedef enum sample_sensor_type {
 
     SG2_OX03C10_MIPI_2M_WDR4TO1_BUILTIN_60FPS_12BIT,
 
+    BG0651_MIPI_100FPS_12BIT,
+
     SAMPLE_SENSOR_TYPE_MAX,
 } sample_sensor_type_e;
 
