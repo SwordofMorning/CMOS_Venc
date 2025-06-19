@@ -1,0 +1,84 @@
+PROJECT(vs_sample_venc)
+
+CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
+
+# ===== Step 1 : Set Cross Compiler Path =====
+
+SET(_CROSS_COMPILE_ROOT_PATH_ "/hdd/System/VS819L/vs-linux/x86-arm/gcc-linaro-7.5.0-aarch64-linux-gnu")
+SET(_CROSS_COMPILE_PATH_ "${_CROSS_COMPILE_ROOT_PATH_}/bin")
+
+SET(CMAKE_C_COMPILER ${_CROSS_COMPILE_PATH_}/aarch64-linux-gnu-gcc)
+SET(CMAKE_CXX_COMPILER ${_CROSS_COMPILE_PATH_}/aarch64-linux-gnu-g++)
+
+# ===== Step 2 : Set Build Paths =====
+SET(TOP_DIR ${CMAKE_SOURCE_DIR})
+SET(BUILD_DIR ${TOP_DIR}/build)
+SET(HFILE_EXPORTS_PATH ${TOP_DIR})
+SET(LIBRARY_EXPORTS_PATH ${TOP_DIR}/vs-mp/lib)
+
+# ===== Step 3 : Set Version and Chip Info =====
+SET(MAJOR_VER 0)
+SET(MINOR_VER 0)
+SET(PATCH_VER 0)
+SET(BUILD_ID 20)
+SET(CHIP_TYPE "carina")
+
+# ===== Step 4 : Set Sensor Types =====
+SET(SENSOR0_TYPE "SONY_IMX334_MIPI_8M_60FPS_12BIT")
+SET(SENSOR1_TYPE "OV_OS04A10_MIPI_4M_30FPS_10BIT")
+SET(SENSOR2_TYPE "OV_OS04A10_MIPI_4M_30FPS_10BIT")
+SET(SENSOR3_TYPE "OV_OS04A10_MIPI_4M_30FPS_10BIT")
+
+# ===== Step 5 : Set Compiler Flags =====
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMAJOR_VER=${MAJOR_VER} -DMINOR_VER=${MINOR_VER}")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPATCH_VER=${PATCH_VER} -DBUILD_ID=${BUILD_ID}")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DVS_CARINA")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSENSOR0_TYPE=${SENSOR0_TYPE}")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSENSOR1_TYPE=${SENSOR1_TYPE}")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSENSOR2_TYPE=${SENSOR2_TYPE}")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSENSOR3_TYPE=${SENSOR3_TYPE}")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-date-time -fstack-protector-strong")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIE -s -Wall -Os -Wno-unused-function -fPIC")
+
+# ===== Step 6 : Set Linker Flags =====
+SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie")
+SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,relro -Wl,-z,noexecstack -Wl,-z,now,-s")
+
+# ===== Step 7 : Set Include Directories =====
+INCLUDE_DIRECTORIES(
+    ${HFILE_EXPORTS_PATH}/vs-mp/include
+)
+
+# ===== Step 8 : Set Library Directories =====
+LINK_DIRECTORIES(
+    ${LIBRARY_EXPORTS_PATH}
+    ${LIBRARY_EXPORTS_PATH}/nn
+)
+
+# ===== Step 9 : Set Application Name =====
+SET(APP_NAME "venc")
+
+# ===== Step 10 : Add Subdirectory =====
+ADD_SUBDIRECTORY(src bin)
+
+# ===== Step 11: Generate Version Info =====
+# Branch
+EXECUTE_PROCESS(
+    COMMAND git rev-parse --abbrev-ref HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_BRANCH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Last commit ID
+EXECUTE_PROCESS(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_COMMIT_ID
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Compile time
+STRING(TIMESTAMP COMPILE_TIME "%Y-%m-%d %H:%M:%S")
+
+MESSAGE(STATUS "Building ${APP_NAME} - Branch: ${GIT_BRANCH}, Commit: ${GIT_COMMIT_ID}")
