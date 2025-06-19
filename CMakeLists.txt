@@ -1,4 +1,4 @@
-PROJECT(vs_sample_venc)
+PROJECT(VS839_VENC)
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
 
@@ -56,7 +56,7 @@ LINK_DIRECTORIES(
 )
 
 # ===== Step 9 : Set Application Name =====
-SET(APP_NAME "venc")
+SET(APP_NAME "app_venc")
 
 # ===== Step 10 : Add Subdirectory =====
 ADD_SUBDIRECTORY(src bin)
