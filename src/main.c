@@ -59,10 +59,11 @@
 extern vs_int8_t g_bus_id[VII_MAX_ROUTE_NUM];
 extern sample_sensor_type_e g_sensor_type[VII_MAX_ROUTE_NUM];
 extern vs_bool_t g_nr_3d;
-static vs_vii_vpp_mode_e g_vii_vpp_mode = E_VII_OFFLINE_VPP_ONLINE;
+// static vs_vii_vpp_mode_e g_vii_vpp_mode = E_VII_OFFLINE_VPP_ONLINE;
+static vs_vii_vpp_mode_e g_vii_vpp_mode = E_VII_ONLINE_VPP_ONLINE;
 static volatile sig_atomic_t g_stop_flag = 0;
-static vs_uint32_t g_comm_vb_cnt = 30;
-static vs_compress_mode_e g_compress_mode = E_COMPRESS_MODE_RASTER;
+static vs_uint32_t g_comm_vb_cnt = 12;
+static vs_compress_mode_e g_compress_mode = E_COMPRESS_MODE_NONE;
 static vs_int32_t g_sensor_framerate = 30;
 static vs_uint32_t g_pool_cnt = 1;
 static vs_uint32_t g_buffer_dimension = 1;
