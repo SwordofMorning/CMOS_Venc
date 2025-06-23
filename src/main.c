@@ -2,7 +2,7 @@
  * @file main.c
  * @author XJT
  * @brief VS839 VENC demo - Optimized for low latency with interactive sensor selection
- * @version 0.4.2
+ * @version 0.4.4
  * @date 2025-06-19
  * 
  * @copyright Copyright (c) 2025
@@ -65,7 +65,7 @@ extern vs_int8_t g_bus_id[VII_MAX_ROUTE_NUM];
 extern sample_sensor_type_e g_sensor_type[VII_MAX_ROUTE_NUM];
 extern vs_bool_t g_nr_3d;
 
-// 低延迟优化配置
+// 低延迟优化配置 - 强制使用在线模式
 static vs_vii_vpp_mode_e g_vii_vpp_mode = E_VII_ONLINE_VPP_ONLINE;  // 在线模式降低延迟
 static volatile sig_atomic_t g_stop_flag = 0;
 static vs_uint32_t g_comm_vb_cnt = LOW_LATENCY_VB_COUNT;  // 减少缓冲区数量
@@ -327,13 +327,14 @@ vs_int32_t sample_venc_vii_init(vs_int32_t sensor_id, sample_vii_cfg_s* p_vii_cf
     return VS_SUCCESS;
 }
 
-// 修改后的低延迟VPP初始化函数 - 使用普通VPP启动后再设置低延迟
+// 完全按照原版代码重构的低延迟VPP初始化函数
 static vs_int32_t sample_venc_vpp_lowlatency_init(vs_int32_t vpp_grpid, vs_size_s input_size, vs_size_s* p_output_size, vs_bool_t* p_chn_enable)
 {
     vs_int32_t i = 0, ret = 0;
     vs_vpp_grp_attr_s vpp_grp_attr;
     vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
-    vs_lowlatency_attr_s lowlatency_attr;
+
+    printf("Initializing low latency VPP (group %d)...\n", vpp_grpid);
 
     memset(&vpp_grp_attr, 0, sizeof(vpp_grp_attr));
     vpp_grp_attr.max_width = input_size.width;
@@ -359,7 +360,7 @@ static vs_int32_t sample_venc_vpp_lowlatency_init(vs_int32_t vpp_grpid, vs_size_
             vpp_chn_attr[i].framerate.dst_framerate = g_sensor_framerate;
             vpp_chn_attr[i].mirror_enable = VS_FALSE;
             vpp_chn_attr[i].flip_enable = VS_FALSE;
-            vpp_chn_attr[i].depth = 1;  // 低延迟：减少深度
+            vpp_chn_attr[i].depth = 0;  // 参考原版代码设置为0
             vpp_chn_attr[i].aspect_ratio.mode = E_ASPECT_RATIO_MODE_NONE;
             
             printf("VPP chn[%d]: width=%d, height=%d, format=%d\n", 
@@ -367,33 +368,15 @@ static vs_int32_t sample_venc_vpp_lowlatency_init(vs_int32_t vpp_grpid, vs_size_
         }
     }
 
-    // 先使用普通VPP启动方式
-    ret = sample_common_vpp_start(vpp_grpid, p_chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    // 第1步：使用专门的低延迟VPP启动方式（不会自动启用通道）
+    ret = sample_common_vpp_lowlatency_start(vpp_grpid, p_chn_enable, &vpp_grp_attr, vpp_chn_attr);
     if (ret != VS_SUCCESS)
     {
-        vs_sample_trace("sample_common_vpp_start failed, ret[0x%x]\n", ret);
+        vs_sample_trace("sample_common_vpp_lowlatency_start failed, ret[0x%x]\n", ret);
         return ret;
     }
 
-    printf("VPP started successfully, now setting low latency mode\n");
-
-    // VPP启动后，再设置低延迟属性
-    lowlatency_attr.enable = VS_TRUE;
-    lowlatency_attr.mode = E_LOWLATENCY_MODE_VENC_ONLY;
-    lowlatency_attr.linebuf_mode = E_LOWLATENCY_LINEBUF_MODE_64_LINE;  // H265使用64线模式
-
-    ret = vs_mal_vpp_chn_lowlatency_set(vpp_grpid, 0, &lowlatency_attr);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("vs_mal_vpp_chn_lowlatency_set failed, ret[0x%x], continuing without low latency\n", ret);
-        // 不返回错误，继续执行
-    }
-    else
-    {
-        printf("Low latency mode set successfully\n");
-    }
-
-    printf("VPP low latency initialization completed\n");
+    printf("VPP lowlatency started successfully\n");
     return VS_SUCCESS;
 }
 
@@ -510,6 +493,8 @@ vs_int32_t sample_venc_lowlatency_videostrm(vs_int32_t argc, char* argv[])
     sample_brc_mode_e brc_mode = E_VENC_BRC_CBR;
     vs_venc_gop_mode_e gop_mode = E_VENC_GOP_MODE_NORMP;
     vs_venc_gop_attr_s gop_attr;
+    vs_lowlatency_attr_s lowlatency_attr;
+    vs_int32_t i = 0;
 
     printf("\n=====Starting Low Latency Video Stream Mode=====\n");
 
@@ -526,7 +511,7 @@ vs_int32_t sample_venc_lowlatency_videostrm(vs_int32_t argc, char* argv[])
     }
 
     sample_common_vii_sensor_img_size_get(sensor_id, &sensor_size);
-    printf("Sensor size: %dx%d\n", sensor_size.width, sensor_size.height);
+    printf("Sensor size: %dx%d, framerate: %d\n", sensor_size.width, sensor_size.height, g_sensor_framerate);
     
     ret = sample_venc_sys_init(sensor_id, sensor_size);
     if (ret != VS_SUCCESS)
@@ -542,8 +527,16 @@ vs_int32_t sample_venc_lowlatency_videostrm(vs_int32_t argc, char* argv[])
         goto exit_sys_exit;
     }
 
+    // 使用修改后的GOP属性获取函数
+    ret = sample_venc_lowlatency_gop_attr_get(gop_mode, &gop_attr);
+    if (ret != VS_SUCCESS)
+    {
+        vs_sample_trace("sample_venc_lowlatency_gop_attr_get failed, ret[0x%x]\n", ret);
+        goto exit_vii_stop;
+    }
+
     vpp_output_size[0] = sensor_size;
-    // 使用修改后的低延迟VPP初始化
+    // 第1步：初始化VPP（不启用通道）
     ret = sample_venc_vpp_lowlatency_init(vpp_grpid, sensor_size, vpp_output_size, vpp_chn_enable);
     if (ret != VS_SUCCESS)
     {
@@ -551,15 +544,7 @@ vs_int32_t sample_venc_lowlatency_videostrm(vs_int32_t argc, char* argv[])
         goto exit_vii_stop;
     }
 
-    // 使用修改后的GOP属性获取函数
-    ret = sample_venc_lowlatency_gop_attr_get(gop_mode, &gop_attr);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_venc_lowlatency_gop_attr_get failed, ret[0x%x]\n", ret);
-        goto exit_vpp_stop;
-    }
-
-    // 使用低延迟编码器初始化
+    // 第2步：初始化VENC
     ret = sample_venc_lowlatency_chn_init(venc_chnid[0], encode_type[0], profile[0], vpp_output_size[0], brc_mode, &gop_attr);
     if (ret != VS_SUCCESS)
     {
@@ -567,6 +552,7 @@ vs_int32_t sample_venc_lowlatency_videostrm(vs_int32_t argc, char* argv[])
         goto exit_vpp_stop;
     }
 
+    // 第3步：绑定VPP到VENC（关键：在启用VPP通道前绑定）
     printf("Binding VPP to VENC...\n");
     ret = sample_common_vpp_bind_venc(vpp_grpid, vpp_chnid, venc_devid, venc_chnid[0]);
     if (ret != VS_SUCCESS)
@@ -575,8 +561,41 @@ vs_int32_t sample_venc_lowlatency_videostrm(vs_int32_t argc, char* argv[])
         goto exit_venc0_stop;
     }
 
+    // 第4步：设置低延迟属性
+    printf("Setting low latency attributes...\n");
+    lowlatency_attr.enable = VS_TRUE;
+    lowlatency_attr.mode = E_LOWLATENCY_MODE_VENC_ONLY;
+    if (encode_type[0] == E_PT_TYPE_H264) {
+        lowlatency_attr.linebuf_mode = E_LOWLATENCY_LINEBUF_MODE_16_LINE;
+    } else {
+        lowlatency_attr.linebuf_mode = E_LOWLATENCY_LINEBUF_MODE_64_LINE;
+    }
+    
+    ret = vs_mal_vpp_chn_lowlatency_set(vpp_grpid, vpp_chnid, &lowlatency_attr);
+    if (ret != VS_SUCCESS)
+    {
+        vs_sample_trace("vs_mal_vpp_chn_lowlatency_set(grp %d chn %d) failed with 0x%x\n", vpp_grpid, vpp_chnid, ret);
+        goto exit_vpp_unbind_venc;
+    }
+
+    // 第5步：手动启用VPP通道
+    printf("Enabling VPP channels...\n");
+    for (i = 0; i < VPP_MAX_PHYCHN_NUM; i++)
+    {
+        if (vpp_chn_enable[i] == VS_TRUE)
+        {
+            ret = vs_mal_vpp_chn_enable(vpp_grpid, i);
+            if (ret != VS_SUCCESS)
+            {
+                vs_sample_trace("vs_mal_vpp_chn_enable failed for chn[%d], ret[0x%x]\n", i, ret);
+                goto exit_vpp_unbind_venc;
+            }
+            printf("VPP channel %d enabled successfully\n", i);
+        }
+    }
+
+    // 第6步：最后绑定VII到VPP以开始数据流
     printf("Binding VII to VPP...\n");
-    // 最后绑定VII到VPP以开始数据流
     ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
     if (ret != VS_SUCCESS)
     {
@@ -592,10 +611,11 @@ vs_int32_t sample_venc_lowlatency_videostrm(vs_int32_t argc, char* argv[])
     printf("- Low latency encoder with optimized BRC\n");
     printf("- Optimized GOP parameters\n");
     printf("- No compression mode\n");
+    printf("- Correct binding sequence for low latency\n");
     
     // 等待一会儿让数据流稳定
     printf("Waiting for pipeline to stabilize...\n");
-    sleep(2);
+    sleep(3);
     
     sample_venc_pause();
 
