@@ -8,6 +8,11 @@ SET(SAMPLE_COMMON_SRCS
     ${SAMPLE_COMMON_DIR}/sample_common_venc.c
     ${SAMPLE_COMMON_DIR}/sample_common_vo.c
     ${SAMPLE_COMMON_DIR}/sample_common_mipitx.c
+    ${SAMPLE_COMMON_DIR}/sample_common_mipitx.c
+    ${SAMPLE_COMMON_DIR}/sample_common_vdec.c
+    ${SAMPLE_COMMON_DIR}/sample_common_audio.c
+    # ${SAMPLE_COMMON_DIR}/sample_common_nn.c
+    # ${SAMPLE_COMMON_DIR}/sample_common_rgn.c
 )
 
 # ===== Local Source Files =====
@@ -47,6 +52,9 @@ TARGET_LINK_LIBRARIES(
     vo
     mipitx
     hdmi
+    audio
+    vdec
+    aac
     
     # System libraries
     dl
