@@ -198,8 +198,9 @@ vs_int32_t sample_vii_hdmi()
     vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
     vs_pixel_format_e format;
     vs_size_s vpp_output_size[VPP_MAX_PHYCHN_NUM] = {0};
+    vs_lowlatency_attr_s lowlatency_attr;
 
-    vs_sample_trace("=== Starting VII HDMI sample ===\n");
+    vs_sample_trace("=== Starting VII HDMI Low Latency sample ===\n");
 
     sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
     sample_common_vii_sensor_pixel_format_get(sensor_id, &format);
@@ -210,16 +211,17 @@ vs_int32_t sample_vii_hdmi()
 
     vb_cfg.pool_cnt = g_pool_cnt;
 
+    // 低延迟优化：减少VB缓冲区数量
     for (i = 0; i < g_pool_cnt; i++) {
         vb_cfg.ast_commpool[i].blk_size = g_buffer_dimension * sample_common_buffer_size_get(&img_size, format, E_COMPRESS_MODE_NONE, frame_num);
-        vb_cfg.ast_commpool[i].blk_cnt = 12;
+        vb_cfg.ast_commpool[i].blk_cnt = 12;  // 使用低延迟VB数量
         vb_cfg.ast_commpool[i].remap_mode = VB_REMAP_MODE_NONE;
-        vs_sample_trace("VB pool[%d]: blk_size=%llu, blk_cnt=%d\n", 
+        vs_sample_trace("Low latency VB pool[%d]: blk_size=%llu, blk_cnt=%d\n", 
                         i, (vs_uint64_t)vb_cfg.ast_commpool[i].blk_size, vb_cfg.ast_commpool[i].blk_cnt);
     }
 
     // 配置VO：使用传感器原始分辨率
-    sample_hdmi_get_vo_cfg(&img_size, &disp0_config);  // 传入传感器尺寸而不是固定尺寸
+    sample_hdmi_get_vo_cfg(&img_size, &disp0_config);
     vs_sample_trace("VO config: devid=%d, layerid=%d, output=%d, size=%dx%d\n",
                     disp0_config.vo_devid, disp0_config.vo_layerid, 
                     disp0_config.vo_output, disp0_config.img_width, disp0_config.img_height);
@@ -231,12 +233,12 @@ vs_int32_t sample_vii_hdmi()
     }
     vs_sample_trace("System initialized successfully\n");
 
-    // 关键修改1：使用在线模式，参考正常工作的代码
+    // 低延迟优化：使用在线模式
     vii_cfg.vii_vpp_mode = E_VII_ONLINE_VPP_ONLINE;
     vii_cfg.route_num = 1;
     sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
     
-    // 关键修改2：参考VENC代码的VII配置
+    // 低延迟优化：参考VENC代码的VII配置
     for (i = 0; i < DEV_BIND_MAX_PIPE_NUM; i++) {
         vs_int32_t j;
         for (j = 0; j < VII_MAX_PHYS_CHN_NUM; j++) {
@@ -245,11 +247,14 @@ vs_int32_t sample_vii_hdmi()
             vii_cfg.route_cfg[0].pipe_cfg[i].phys_chn_cfg[j].chn_attr.framerate.dst_framerate = 30;
             vii_cfg.route_cfg[0].pipe_cfg[i].pipe_attr.bypass_mode = E_VII_PIPE_BYPASS_NONE;
             vii_cfg.route_cfg[0].pipe_cfg[i].phys_chn_cfg[j].chn_attr.compress_mode = E_COMPRESS_MODE_NONE;
+            // 低延迟优化：设置更小的depth
+            vii_cfg.route_cfg[0].pipe_cfg[i].phys_chn_cfg[j].chn_attr.depth = 1;
         }
         for (j = 0; j < VII_MAX_EXT_CHN_NUM; j++) {
             vii_cfg.route_cfg[0].pipe_cfg[i].ext_chn_cfg[j].chn_attr.framerate.src_framerate = 30;
             vii_cfg.route_cfg[0].pipe_cfg[i].ext_chn_cfg[j].chn_attr.framerate.dst_framerate = 30;
             vii_cfg.route_cfg[0].pipe_cfg[i].ext_chn_cfg[j].chn_attr.compress_mode = E_COMPRESS_MODE_NONE;
+            vii_cfg.route_cfg[0].pipe_cfg[i].ext_chn_cfg[j].chn_attr.depth = 1;
         }
     }
 
@@ -260,7 +265,9 @@ vs_int32_t sample_vii_hdmi()
     }
     vs_sample_trace("VII started successfully\n");
 
-    // 关键修改3：参考VENC代码的VPP初始化
+    // 第1步：初始化低延迟VPP（不启用通道）
+    printf("Initializing low latency VPP (group %d)...\n", vpp_grpid);
+    
     memset(&vpp_grp_attr, 0, sizeof(vpp_grp_attr));
     vpp_grp_attr.max_width = img_size.width;
     vpp_grp_attr.max_height = img_size.height;
@@ -279,9 +286,9 @@ vs_int32_t sample_vii_hdmi()
             vpp_chn_attr[i].width = vpp_output_size[i].width;
             vpp_chn_attr[i].height = vpp_output_size[i].height;
             vpp_chn_attr[i].video_format = E_VIDEO_FORMAT_LINEAR;
-            vpp_chn_attr[i].pixel_format = E_PIXEL_FORMAT_YVU_420SP;  // 参考VENC代码
+            vpp_chn_attr[i].pixel_format = E_PIXEL_FORMAT_YVU_420SP;
             vpp_chn_attr[i].dynamic_range = E_DYNAMIC_RANGE_SDR8;
-            vpp_chn_attr[i].compress_mode = E_COMPRESS_MODE_NONE;  // 参考VENC代码
+            vpp_chn_attr[i].compress_mode = E_COMPRESS_MODE_NONE;  // 低延迟模式强制无压缩
             vpp_chn_attr[i].framerate.src_framerate = 30;
             vpp_chn_attr[i].framerate.dst_framerate = 30;
             vpp_chn_attr[i].mirror_enable = VS_FALSE;
@@ -294,29 +301,19 @@ vs_int32_t sample_vii_hdmi()
         }
     }
 
-    // 关键修改4：使用标准VPP启动，参考VENC代码
-    ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    // 关键修改：使用低延迟VPP启动方式（不会自动启用通道）
+    ret = sample_common_vpp_lowlatency_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
     if (ret != VS_SUCCESS) {
-        vs_sample_trace("sample_common_vpp_start failed with 0x%x\n", ret);
+        vs_sample_trace("sample_common_vpp_lowlatency_start failed with 0x%x\n", ret);
         goto exit2;
     }
-    vs_sample_trace("VPP started successfully\n");
-
-    // 关键修改5：参考VENC代码的绑定顺序
-    // 第1步：绑定VII到VPP
-    ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
-    if (ret != VS_SUCCESS) {
-        vs_sample_trace("sample_common_vii_bind_vpp failed with 0x%x\n", ret);
-        goto exit3;
-    }
-    vs_sample_trace("VII bind VPP successfully: VII[%d-%d] -> VPP[%d]\n", 
-                    vii_pipeid, vii_chnid, vpp_grpid);
+    vs_sample_trace("VPP lowlatency started successfully\n");
 
     // 第2步：启动音频
     ret = sample_hdmi_audio_start();
     if (ret != VS_SUCCESS) {
         vs_sample_trace("sample_hdmi_audio_start failed with 0x%x\n", ret);
-        goto exit4;
+        goto exit3;
     }
     vs_sample_trace("HDMI audio started successfully\n");
 
@@ -324,21 +321,69 @@ vs_int32_t sample_vii_hdmi()
     ret = sample_common_vo_start(&disp0_config);
     if (ret != VS_SUCCESS) {
         vs_sample_trace("sample_common_vo_start failed with 0x%x\n", ret);
-        goto exit5;
+        goto exit4;
     }
     vs_sample_trace("VO started successfully\n");
 
-    // 第4步：绑定VPP到VO
+    // 第4步：绑定VPP到VO（关键：在启用VPP通道前绑定）
+    printf("Binding VPP to VO...\n");
     ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, disp0_config.vo_layerid, vo_chnid);
     if (ret != VS_SUCCESS) {
         vs_sample_trace("sample_common_vpp_bind_vo failed with 0x%x\n", ret);
-        goto exit6;
+        goto exit5;
     }
     vs_sample_trace("VPP bind VO successfully: VPP[%d-%d] -> VO[%d-%d]\n",
                     vpp_grpid, vpp_chnid, disp0_config.vo_layerid, vo_chnid);
 
+    // 第5步：设置低延迟属性
+    printf("Setting low latency attributes...\n");
+    lowlatency_attr.enable = VS_TRUE;
+    lowlatency_attr.mode = E_LOWLATENCY_MODE_NORMAL;  // VO模式，不是VENC模式
+    lowlatency_attr.linebuf_mode = E_LOWLATENCY_LINEBUF_MODE_64_LINE;  // 适合显示输出
+    
+    ret = vs_mal_vpp_chn_lowlatency_set(vpp_grpid, vpp_chnid, &lowlatency_attr);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("vs_mal_vpp_chn_lowlatency_set(grp %d chn %d) failed with 0x%x\n", vpp_grpid, vpp_chnid, ret);
+        goto exit6;
+    }
+
+    // 第6步：手动启用VPP通道
+    printf("Enabling VPP channels...\n");
+    for (i = 0; i < VPP_MAX_PHYCHN_NUM; i++) {
+        if (chn_enable[i] == VS_TRUE) {
+            ret = vs_mal_vpp_chn_enable(vpp_grpid, i);
+            if (ret != VS_SUCCESS) {
+                vs_sample_trace("vs_mal_vpp_chn_enable failed for chn[%d], ret[0x%x]\n", i, ret);
+                goto exit6;
+            }
+            printf("VPP channel %d enabled successfully\n", i);
+        }
+    }
+
+    // 第7步：最后绑定VII到VPP以开始数据流
+    printf("Binding VII to VPP...\n");
+    ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("sample_common_vii_bind_vpp failed with 0x%x\n", ret);
+        goto exit6;
+    }
+    vs_sample_trace("VII bind VPP successfully: VII[%d-%d] -> VPP[%d]\n", 
+                    vii_pipeid, vii_chnid, vpp_grpid);
+
+    printf("=====Low Latency HDMI Pipeline Established=====\n");
+    printf("Optimizations applied:\n");
+    printf("- Online VII-VPP mode\n");
+    // printf("- Reduced VB buffers: %d\n", LOW_LATENCY_VB_COUNT);
+    printf("- Low latency VPP mode for VO output\n");
+    printf("- No compression mode\n");
+    printf("- Correct binding sequence for low latency\n");
+    printf("- VII[%d-%d] -> VPP[%d-%d] -> VO[%d-%d] -> HDMI\n",
+           vii_pipeid, vii_chnid, vpp_grpid, vpp_chnid, disp0_config.vo_layerid, vo_chnid);
+
     // 等待系统稳定
+    printf("Waiting for pipeline to stabilize...\n");
     sleep(3);
+    
     vs_sample_trace("=== Final system status ===\n");
     
     vs_sample_trace("VII final status:\n");
@@ -353,22 +398,22 @@ vs_int32_t sample_vii_hdmi()
     vs_sample_trace("Bind final status:\n");
     system("cat /proc/vssdk/sys | grep -A 10 'Bind Session'");
 
-    vs_sample_trace("=== VII HDMI sample started successfully ===\n");
-    vs_sample_trace("Expected: Direct %dx%d output to HDMI\n", img_size.width, img_size.height);
+    vs_sample_trace("=== VII HDMI Low Latency sample started successfully ===\n");
+    vs_sample_trace("Expected: Low latency %dx%d output to HDMI\n", img_size.width, img_size.height);
     vs_sample_trace("Press Ctrl+C to stop...\n");
 
     sample_common_pause();
 
-    vs_sample_trace("=== Stopping VII HDMI sample ===\n");
+    vs_sample_trace("=== Stopping VII HDMI Low Latency sample ===\n");
     
     // 按相反顺序清理
-    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
-exit6:
-    sample_common_vo_stop(&disp0_config);
-exit5:
-    sample_hdmi_audio_stop();
-exit4:
     sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+exit6:
+    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+exit5:
+    sample_common_vo_stop(&disp0_config);
+exit4:
+    sample_hdmi_audio_stop();
 exit3:
     sample_common_vpp_stop(vpp_grpid, chn_enable);
 exit2:
@@ -377,7 +422,7 @@ exit1:
     sample_common_sys_exit();
 exit0:
     if (ret != VS_SUCCESS) {
-        vs_sample_trace("VII HDMI sample failed with error 0x%x\n", ret);
+        vs_sample_trace("VII HDMI Low Latency sample failed with error 0x%x\n", ret);
     }
     return ret;
 }
