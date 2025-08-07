@@ -887,7 +887,7 @@ static vs_isp_comm_attr_s s_imx586_2m_120fps_10bit_linear_isp_attr = {
 
 static vs_isp_comm_attr_s s_bg0651_100fps_12bit_linear_isp_attr = {
     .sensor_size = {800, 600},
-    .frame_rate = 100,
+    .frame_rate = 50,
     .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
     .wdr_mode = E_WDR_MODE_NONE,
     .sensor_mode = 0,
