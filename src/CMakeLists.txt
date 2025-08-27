@@ -47,6 +47,9 @@ TARGET_LINK_LIBRARIES(
     vo
     mipitx
     hdmi
+
+    #regtools
+    regtools
     
     # System libraries
     dl
