@@ -43,11 +43,13 @@ typedef enum vs_vb_remap_mode {
 } vs_vb_remap_mode_e;
 
 #define VS_VBM_MMZ_MAX_NAME_LEN	32
+#define VS_VBM_POOL_MAX_NAME_LEN	32
 typedef struct vs_vb_pool_cfg {
 	vs_uint64_t blk_size;     ///< block size
 	vs_uint32_t blk_cnt;      ///< block count
 	vs_vb_remap_mode_e remap_mode;  ///< remap mode
 	vs_char_t zone_name[VS_VBM_MMZ_MAX_NAME_LEN]; ///< zone name
+	vs_char_t pool_name[VS_VBM_POOL_MAX_NAME_LEN]; ///< pool name
 } vs_vb_pool_cfg_s;
 
 #define VS_VB_MAX_POOL_NUM		768
@@ -60,6 +62,7 @@ typedef struct vs_vb_cfg {
 } vs_vb_cfg_s;
 
 #define VS_VB_SUPPLEMENT_ISPINFO_MASK	0x1
+#define VS_VB_SUPPLEMENT_LOWLATENCY_MASK	0x2
 typedef struct vs_vb_supplement_cfg {
 	vs_uint32_t supplement_cfg;
 } vs_vb_supplement_cfg_s;
@@ -80,6 +83,7 @@ typedef enum vs_vb_uid {
 	VS_VB_UID_USER,
 	VS_VB_UID_FB,
 	VS_VB_UID_IVE,
+	VS_VB_UID_RVS,
 	VS_VB_UID_MAX,
 } vs_vb_uid_e;
 
@@ -93,6 +97,7 @@ typedef enum vs_pool_type {
 
 typedef struct vs_frame_supplement_addr {
     vs_uint64_t   isp_info_phys_addr;
+	vs_uint64_t lowlatency_info_phys_addr;
 } vs_frame_supplement_addr_s;
 
 typedef struct vs_vb_pool_info {

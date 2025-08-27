@@ -18,9 +18,6 @@
 #include "vs_mal_vbm.h"
 #include "vs_errno.h"
 #include "vs_vpp_defines.h"
-#ifdef VPP_BE_ALWAYS_ONLINE
-#include "vs_comm_algo.h"
-#endif
 
 #ifdef __cplusplus
 extern "C"{

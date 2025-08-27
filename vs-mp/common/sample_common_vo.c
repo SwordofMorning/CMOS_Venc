@@ -34,8 +34,8 @@ extern "C" {
 #define align_down(x, a)    (((x) / (a)) * (a))
 #define LAYER_BUF_DEPTH_DEF 3
 #define CHN_BUF_DEPTH_DEF   5
-vs_vo_output_type_e g_output_type;
 #ifndef VS_ORION
+static vs_vo_output_type_e g_output_type;
 static vs_vo_interface_type_e g_hdmi_common_vo_intf_type;
 static vs_vo_timing_s g_hdmi_timing_info = {0};
 static vs_vo_clk_info_s g_hdmi_clk_info = {0};
@@ -341,31 +341,144 @@ vs_void_t sample_common_vo_dest_rect_get(sample_vo_cfg_s* p_vo_config, vs_rect_s
     return;
 }
 
+static void sample_common_vo_hdmi_user_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
+{
+    /* user defined vo timing, especially used when the interface is HDMI(1920*1080P59.94) */
+    /* hdmi attr should be the same with the vo user timing info, refer to sample_common_hdmi_user_timing_get */
+    attr->interface_output = E_VO_OUTPUT_TYPE_USER;
+    attr->timing_info.hactive = 1920;
+    attr->timing_info.hfp = 88;
+    attr->timing_info.hbp = 148;
+    attr->timing_info.hpw = 44;
+    attr->timing_info.hsync_polarity = 1;
+    attr->timing_info.vactive = 1080;
+    attr->timing_info.vfp = 4;
+    attr->timing_info.vbp = 36;
+    attr->timing_info.vpw = 5;
+    attr->timing_info.vsync_polarity = 1;
+    attr->timing_info.data_polarity = 1;
+    attr->timing_info.interlaced_output = 0;
+    clk->pixel_clk_rate = 148351500UL;      /* (148500000UL * 59.94) / 60 = 148351500UL */
+    clk->clk_div = 8;
+}
+
+void sample_common_vo_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
+{
+    /* user defined vo timing, especially used when the interface is mipi-tx(1080*1920P60) */
+    attr->interface_output = E_VO_OUTPUT_TYPE_USER;
+    attr->timing_info.hactive = 1080;
+    attr->timing_info.hfp = 72;
+    attr->timing_info.hbp = 16;
+    attr->timing_info.hpw = 8;
+    attr->timing_info.hsync_polarity = 1;
+    attr->timing_info.vactive = 1920;
+    attr->timing_info.vfp = 15;
+    attr->timing_info.vbp = 8;
+    attr->timing_info.vpw = 2;
+    attr->timing_info.vsync_polarity = 1;
+    attr->timing_info.data_polarity = 1;
+    attr->timing_info.interlaced_output = 0;
+    clk->pixel_clk_rate = 137239000UL;
+    clk->clk_div = 8;
+}
+
+static vs_void_t sample_common_vo_intf_user_timing_get(sample_vo_cfg_s *p_vo_config)
+{
+    vs_vo_clk_info_s clk = {0};
+    vs_vo_dev_attr_s dev_attr = {0};
+
+    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_MIPI) {
+        sample_common_vo_timing_get(&dev_attr, &clk);
+        if (!p_vo_config->mipitx_phy_rate) {
+            /* phy rate = ((pixel_clk / 1000000) * 24) / 4 * 1.2 for burst mode, sometime need fix a little */
+            p_vo_config->mipitx_phy_rate = 1000;
+        }
+    }
+
+    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_HDMI) {
+        sample_common_vo_hdmi_user_timing_get(&dev_attr, &clk);
+    }
+    memcpy(&p_vo_config->timing, &dev_attr.timing_info, sizeof(vs_vo_timing_s));
+
+    p_vo_config->clk_info.pixel_clk_rate = p_vo_config->clk_info.pixel_clk_rate ?
+        p_vo_config->clk_info.pixel_clk_rate : clk.pixel_clk_rate;
+
+    p_vo_config->clk_info.clk_div = p_vo_config->clk_info.clk_div ?
+        p_vo_config->clk_info.clk_div : clk.clk_div;
+}
+
 #ifndef VS_ORION
 vs_void_t sample_common_vo_hdmi_convert(vs_vo_output_type_e vo_video, vs_hdmi_video_format_e *p_hdmi_video)
 {
-    switch (vo_video) {
-        case E_VO_OUTPUT_TYPE_1080P30:
-            *p_hdmi_video = E_HDMI_VIDEO_FORMAT_1080P_30;
-            break;
-        case E_VO_OUTPUT_TYPE_3840x2160_30:
-            *p_hdmi_video = E_HDMI_VIDEO_FORMAT_3840x2160P_30;
-            break;
-        case E_VO_OUTPUT_TYPE_1080P60:
-            *p_hdmi_video = E_HDMI_VIDEO_FORMAT_1080P_60;
-            break;
-        case E_VO_OUTPUT_TYPE_3840x2160_60:
-            *p_hdmi_video = E_HDMI_VIDEO_FORMAT_3840x2160P_60;
-            break;
-        case E_VO_OUTPUT_TYPE_2560x1440_60:
-            *p_hdmi_video = E_HDMI_VIDEO_FORMAT_2560x1440_60;
-            break;
-        case E_VO_OUTPUT_TYPE_USER:
-            *p_hdmi_video = E_HDMI_VIDEO_FORMAT_CUSTOMER_DEFINE;
-            break;
-        default:
-            *p_hdmi_video = E_HDMI_VIDEO_FORMAT_1080P_30;
-            break;
+    const vs_uint8_t vo_to_hdmi_sync[E_VO_OUTPUT_TYPE_MAX+1][2] =
+    {
+        {E_VO_OUTPUT_TYPE_PAL,     E_HDMI_VIDEO_FORMAT_MAX},
+        {E_VO_OUTPUT_TYPE_NTSC,    E_HDMI_VIDEO_FORMAT_MAX},
+        {E_VO_OUTPUT_TYPE_1080P24, E_HDMI_VIDEO_FORMAT_1080P_24},
+        {E_VO_OUTPUT_TYPE_1080P25, E_HDMI_VIDEO_FORMAT_1080P_25},
+        {E_VO_OUTPUT_TYPE_1080P30, E_HDMI_VIDEO_FORMAT_1080P_30},
+        {E_VO_OUTPUT_TYPE_720P50,  E_HDMI_VIDEO_FORMAT_720P_50},
+        {E_VO_OUTPUT_TYPE_720P60,  E_HDMI_VIDEO_FORMAT_720P_60},
+
+        {E_VO_OUTPUT_TYPE_1080I50, E_HDMI_VIDEO_FORMAT_1080I_50},
+        {E_VO_OUTPUT_TYPE_1080I60, E_HDMI_VIDEO_FORMAT_1080I_60},
+
+        {E_VO_OUTPUT_TYPE_1080P50, E_HDMI_VIDEO_FORMAT_1080P_50},
+        {E_VO_OUTPUT_TYPE_1080P60, E_HDMI_VIDEO_FORMAT_1080P_60},
+        {E_VO_OUTPUT_TYPE_576P50,  E_HDMI_VIDEO_FORMAT_576P_50},
+        {E_VO_OUTPUT_TYPE_480P60,  E_HDMI_VIDEO_FORMAT_480P_60},
+
+        {E_VO_OUTPUT_TYPE_800x600_60,   E_HDMI_VIDEO_FORMAT_800x600_60},
+        {E_VO_OUTPUT_TYPE_1024x768_60,  E_HDMI_VIDEO_FORMAT_1024x768_60},
+        {E_VO_OUTPUT_TYPE_1280x1024_60, E_HDMI_VIDEO_FORMAT_1280x1024_60},
+        {E_VO_OUTPUT_TYPE_1366x768_60,  E_HDMI_VIDEO_FORMAT_1366x768_60},
+        {E_VO_OUTPUT_TYPE_1440x900_60,  E_HDMI_VIDEO_FORMAT_1440x900_60},
+        {E_VO_OUTPUT_TYPE_1280x800_60,  E_HDMI_VIDEO_FORMAT_1280x800_60},
+        {E_VO_OUTPUT_TYPE_1600x1200_60, E_HDMI_VIDEO_FORMAT_1600x1200_60},
+        {E_VO_OUTPUT_TYPE_1680x1050_60, E_HDMI_VIDEO_FORMAT_1680x1050_60},
+        {E_VO_OUTPUT_TYPE_1920x1200_60, E_HDMI_VIDEO_FORMAT_1920x1200_60},
+        {E_VO_OUTPUT_TYPE_640x480_60,   E_HDMI_VIDEO_FORMAT_640x480_60},
+
+        {E_VO_OUTPUT_TYPE_960H_PAL,     E_HDMI_VIDEO_FORMAT_MAX},
+        {E_VO_OUTPUT_TYPE_960H_NTSC,    E_HDMI_VIDEO_FORMAT_MAX},
+
+        {E_VO_OUTPUT_TYPE_1920x2160_30, E_HDMI_VIDEO_FORMAT_1920x2160_30},
+        {E_VO_OUTPUT_TYPE_2560x1440_30, E_HDMI_VIDEO_FORMAT_2560x1440_30},
+        {E_VO_OUTPUT_TYPE_2560x1440_60, E_HDMI_VIDEO_FORMAT_2560x1440_60},
+        {E_VO_OUTPUT_TYPE_2560x1600_60, E_HDMI_VIDEO_FORMAT_2560x1600_60},
+        {E_VO_OUTPUT_TYPE_3840x2160_24, E_HDMI_VIDEO_FORMAT_3840x2160P_24},
+        {E_VO_OUTPUT_TYPE_3840x2160_25, E_HDMI_VIDEO_FORMAT_3840x2160P_25},
+        {E_VO_OUTPUT_TYPE_3840x2160_30, E_HDMI_VIDEO_FORMAT_3840x2160P_30},
+        {E_VO_OUTPUT_TYPE_3840x2160_50, E_HDMI_VIDEO_FORMAT_3840x2160P_50},
+        {E_VO_OUTPUT_TYPE_3840x2160_60, E_HDMI_VIDEO_FORMAT_3840x2160P_60},
+        {E_VO_OUTPUT_TYPE_4096x2160_24, E_HDMI_VIDEO_FORMAT_4096x2160P_24},
+        {E_VO_OUTPUT_TYPE_4096x2160_25, E_HDMI_VIDEO_FORMAT_4096x2160P_25},
+        {E_VO_OUTPUT_TYPE_4096x2160_30, E_HDMI_VIDEO_FORMAT_4096x2160P_30},
+        {E_VO_OUTPUT_TYPE_4096x2160_50, E_HDMI_VIDEO_FORMAT_4096x2160P_50},
+        {E_VO_OUTPUT_TYPE_4096x2160_60, E_HDMI_VIDEO_FORMAT_4096x2160P_60},
+
+        {E_VO_OUTPUT_TYPE_320x240_60,   E_HDMI_VIDEO_FORMAT_MAX},
+        {E_VO_OUTPUT_TYPE_320x240_50,   E_HDMI_VIDEO_FORMAT_MAX},
+        {E_VO_OUTPUT_TYPE_240x320_50,   E_HDMI_VIDEO_FORMAT_MAX},
+        {E_VO_OUTPUT_TYPE_240x320_60,   E_HDMI_VIDEO_FORMAT_MAX},
+        {E_VO_OUTPUT_TYPE_800x600_50,   E_HDMI_VIDEO_FORMAT_MAX},
+
+        {E_VO_OUTPUT_TYPE_720x1280_60,  E_HDMI_VIDEO_FORMAT_720x1280_60},
+        {E_VO_OUTPUT_TYPE_1080x1920_60, E_HDMI_VIDEO_FORMAT_1080x1920_60},
+
+        {E_VO_OUTPUT_TYPE_USER, E_HDMI_VIDEO_FORMAT_CUSTOMER_DEFINE},
+        {E_VO_OUTPUT_TYPE_MAX,  E_HDMI_VIDEO_FORMAT_MAX},
+    };
+
+    if (vo_video >= E_VO_OUTPUT_TYPE_MAX) {
+        *p_hdmi_video = E_HDMI_VIDEO_FORMAT_1080P_30;
+        return;
+    }
+
+    *p_hdmi_video = vo_to_hdmi_sync[vo_video][1];
+
+    if (*p_hdmi_video > E_HDMI_VIDEO_FORMAT_CUSTOMER_DEFINE) {
+        *p_hdmi_video = E_HDMI_VIDEO_FORMAT_1080P_30;
     }
 
     return;
@@ -473,10 +586,10 @@ void sample_hdmi_hotplug_cb(vs_hdmi_event_type_e event, vs_void_t *p_private_dat
             vs_sample_trace("hdmi_restart fail output_type %d, ret 0x%x\n", g_output_type, ret);
         }
     }
-    vs_sample_trace("sample_hdmi_hotplug_cb, with event %d\n", event);
+    vs_sample_trace("sample_hdmi_hotplug_cb, with event %d, output_type %d\n", event, g_output_type);
 }
 
-vs_int32_t sample_common_hdmi_start(vs_vo_output_type_e output, vs_vo_interface_type_e vo_intf_type)
+vs_int32_t sample_common_hdmi_start(sample_vo_cfg_s *cfg)
 {
     vs_int32_t ret;
     vs_hdmi_callback_s p_callback = {
@@ -496,8 +609,17 @@ vs_int32_t sample_common_hdmi_start(vs_vo_output_type_e output, vs_vo_interface_
         return VS_FAILED;
     }
 
-    g_hdmi_common_vo_intf_type = vo_intf_type;
-    ret = sample_common_set_hdmi_attr(output, vo_intf_type, &g_hdmi_timing_info, &g_hdmi_clk_info);
+    g_output_type = cfg->vo_output;
+    g_hdmi_common_vo_intf_type = cfg->vo_intf_type;
+
+    if (cfg->vo_output == E_VO_OUTPUT_TYPE_USER && cfg->timing.vactive == 0) {
+        sample_common_vo_intf_user_timing_get(cfg);
+    }
+
+    memcpy(&g_hdmi_timing_info, &cfg->timing, sizeof(vs_vo_timing_s));
+    memcpy(&g_hdmi_clk_info, &cfg->clk_info, sizeof(vs_vo_clk_info_s));
+
+    ret = sample_common_set_hdmi_attr(g_output_type, g_hdmi_common_vo_intf_type, &g_hdmi_timing_info, &g_hdmi_clk_info);
     if (ret != VS_SUCCESS) {
         vs_sample_trace("sample_common_set_hdmi_attr failed with 0x%x\n", ret);
         return VS_FAILED;
@@ -524,50 +646,12 @@ vs_int32_t sample_common_hdmi_stop()
     vs_mal_hdmi_close(0);
 
     vs_mal_hdmi_deinit();
+    g_output_type = 0;
+    memset(&g_hdmi_timing_info, 0, sizeof(vs_vo_timing_s));
+    memset(&g_hdmi_clk_info, 0, sizeof(vs_vo_clk_info_s));
     return 0;
 }
 #endif
-
-void sample_common_vo_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
-{
-    /* user defined vo timing, especially used when the interface is mipi-tx(1080*1920P60) */
-    attr->interface_output = E_VO_OUTPUT_TYPE_USER;
-    attr->timing_info.hactive = 1080;
-    attr->timing_info.hfp = 118;
-    attr->timing_info.hbp = 60;
-    attr->timing_info.hpw = 8;
-    attr->timing_info.hsync_polarity = 1;
-    attr->timing_info.vactive = 1920;
-    attr->timing_info.vfp = 15;
-    attr->timing_info.vbp = 8;
-    attr->timing_info.vpw = 2;
-    attr->timing_info.vsync_polarity = 1;
-    attr->timing_info.data_polarity = 1;
-    attr->timing_info.interlaced_output = 0;
-    clk->pixel_clk_rate = 148500000UL;
-    clk->clk_div = 8;
-}
-
-static void sample_common_vo_hdmi_user_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
-{
-    /* user defined vo timing, especially used when the interface is HDMI(1920*1080P59.94) */
-    /* hdmi attr should be the same with the vo user timing info, refer to sample_common_hdmi_user_timing_get */
-    attr->interface_output = E_VO_OUTPUT_TYPE_USER;
-    attr->timing_info.hactive = 1920;
-    attr->timing_info.hfp = 88;
-    attr->timing_info.hbp = 148;
-    attr->timing_info.hpw = 44;
-    attr->timing_info.hsync_polarity = 1;
-    attr->timing_info.vactive = 1080;
-    attr->timing_info.vfp = 4;
-    attr->timing_info.vbp = 36;
-    attr->timing_info.vpw = 5;
-    attr->timing_info.vsync_polarity = 1;
-    attr->timing_info.data_polarity = 1;
-    attr->timing_info.interlaced_output = 0;
-    clk->pixel_clk_rate = 148351500UL;      /* (148500000UL * 59.94) / 60 = 148351500UL */
-    clk->clk_div = 8;
-}
 
 static vs_void_t sample_common_vo_chn_num_get(sample_vo_mode_e vo_mode, vs_int32_t *row,
     vs_int32_t *col, vs_int32_t *square, vs_int32_t *chn_num)
@@ -657,6 +741,19 @@ static vs_void_t sample_common_vo_layer_image_size_get(sample_vo_cfg_s* p_vo_con
         }
     }
 #endif
+}
+
+static vs_void_t sample_common_vo_layer_image_size_restore(sample_vo_cfg_s* p_vo_config)
+{
+    vs_rect_s tmp = {0};
+
+    if (p_vo_config->vo_intf_type == E_VO_INTERFACE_TYPE_MIPI &&
+        p_vo_config->vo_output == E_VO_OUTPUT_TYPE_USER && p_vo_config->rotation_enable) {
+        p_vo_config->rotation_enable = VS_FALSE;
+        tmp.height = p_vo_config->img_height;
+        p_vo_config->img_height = p_vo_config->img_width;
+        p_vo_config->img_width  = tmp.height;
+    }
 }
 
 vs_int32_t sample_common_vo_chn_enable(sample_vo_cfg_s* p_vo_config)
@@ -794,6 +891,8 @@ vs_int32_t sample_common_vo_chn_enable(sample_vo_cfg_s* p_vo_config)
         }
     }
 
+    sample_common_vo_layer_image_size_restore(p_vo_config);
+
     return VS_SUCCESS;
 }
 
@@ -834,6 +933,7 @@ vs_bool_t is_vo_interlaced_output(sample_vo_cfg_s* p_vo_config)
 vs_int32_t sample_common_vo_layer_enable(sample_vo_cfg_s* p_vo_config)
 {
     vs_int32_t ret;
+    vs_uint32_t buf_depth;
     vs_rect_s rect;
     vs_vo_video_layer_attr_s attr = {0};
     vs_crop_s crop;
@@ -885,7 +985,8 @@ vs_int32_t sample_common_vo_layer_enable(sample_vo_cfg_s* p_vo_config)
         }
     }
 
-    ret = vs_mal_vo_video_layer_buf_depth_set(p_vo_config->vo_layerid, LAYER_BUF_DEPTH_DEF);
+    buf_depth = p_vo_config->bypass_layer ? 0 : LAYER_BUF_DEPTH_DEF;
+    ret = vs_mal_vo_video_layer_buf_depth_set(p_vo_config->vo_layerid, buf_depth);
     if (ret != VS_SUCCESS) {
         vs_sample_trace("vs_mal_vo_video_layer_buf_depth_set(vo_layerid %d) failed with 0x%x\n", p_vo_config->vo_layerid, ret);
         return VS_FAILED;
@@ -898,6 +999,14 @@ vs_int32_t sample_common_vo_layer_enable(sample_vo_cfg_s* p_vo_config)
     }
 
     ret = sample_common_vo_chn_enable(p_vo_config);
+   if (ret != VS_SUCCESS) {
+       vs_mal_vo_video_layer_unbind(p_vo_config->vo_layerid, p_vo_config->vo_devid);
+       vs_mal_vo_video_layer_disable(p_vo_config->vo_layerid);
+       vs_sample_trace("sample_common_vo_chn_enable(vo_layerid %d) failed with 0x%x\n", p_vo_config->vo_layerid, ret);
+       return VS_FAILED;
+   }
+
+    sample_common_vo_layer_image_size_restore(p_vo_config);
 
     return ret;
 }
@@ -995,10 +1104,9 @@ vs_int32_t sample_common_vo_layer_remove(vs_int32_t devid, vs_int32_t layerid)
     return VS_SUCCESS;
 }
 
-vs_int32_t sample_common_vo_start(sample_vo_cfg_s* p_vo_config)
+vs_int32_t sample_common_vo_dev_enable(sample_vo_cfg_s* p_vo_config)
 {
     vs_int32_t ret;
-    vs_vo_clk_info_s clk = {0};
     vs_vo_dev_attr_s dev_attr = {0};
 
     dev_attr.bg_color = p_vo_config->bg_color;
@@ -1006,15 +1114,13 @@ vs_int32_t sample_common_vo_start(sample_vo_cfg_s* p_vo_config)
     dev_attr.interface_type = p_vo_config->vo_intf_type;
 
     if (p_vo_config->vo_output == E_VO_OUTPUT_TYPE_USER) {
-        if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_MIPI) {
-            sample_common_vo_timing_get(&dev_attr, &clk);
+
+        if (p_vo_config->timing.vactive == 0) {
+            sample_common_vo_intf_user_timing_get(p_vo_config);
         }
 
-        if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_HDMI) {
-            sample_common_vo_hdmi_user_timing_get(&dev_attr, &clk);
-        }
-
-        vs_mal_vo_clk_set(p_vo_config->vo_devid, &clk);
+        memcpy(&dev_attr.timing_info, &p_vo_config->timing, sizeof(vs_vo_timing_s));
+        vs_mal_vo_clk_set(p_vo_config->vo_devid, &p_vo_config->clk_info);
     }
 
     ret = vs_mal_vo_dev_attr_set(p_vo_config->vo_devid, &dev_attr);
@@ -1033,10 +1139,23 @@ vs_int32_t sample_common_vo_start(sample_vo_cfg_s* p_vo_config)
         }
     }
 
-    if (p_vo_config->wbc_type > E_VO_SAMPLE_WBC_DISABLE &&
-        p_vo_config->wbc_type < E_VO_SAMPLE_WBC_SOURCE_TYPE_MAX) {
-        ret = sample_common_vo_wbc_enable(p_vo_config);
+    /* when qiuck display or set new policy */
+    if (p_vo_config->policy.dev_policy == E_VO_DEV_POLICY_QUICK_DISPLAY
+        || p_vo_config->policy.tolerant_time != 0) {
+        ret = vs_mal_vo_dev_policy_set(p_vo_config->vo_devid, &p_vo_config->policy);
         if (ret != VS_SUCCESS) {
+            vs_sample_trace("vs_mal_vo_dev_policy_set(vo_devid %d) failed with 0x%x\n",
+                            p_vo_config->vo_devid, ret);
+            return VS_FAILED;
+        }
+    }
+
+    if ((p_vo_config->vo_output != E_VO_OUTPUT_TYPE_USER) &&
+        (p_vo_config->clk_info.clk_div != 0) &&
+        (p_vo_config->clk_info.pixel_clk_rate != 0)) {
+        ret = vs_mal_vo_clk_set(p_vo_config->vo_devid, &p_vo_config->clk_info);
+        if (ret != VS_SUCCESS) {
+            vs_sample_trace("vs_mal_vo_clk_set(vo_devid %d) failed with 0x%x\n", p_vo_config->vo_devid, ret);
             return VS_FAILED;
         }
     }
@@ -1047,41 +1166,57 @@ vs_int32_t sample_common_vo_start(sample_vo_cfg_s* p_vo_config)
         return VS_FAILED;
     }
 
+    return ret;
+}
+
+vs_int32_t sample_common_vo_dev_start(sample_vo_cfg_s* p_vo_config)
+{
+    vs_int32_t ret;
+
+    ret = sample_common_vo_dev_enable(p_vo_config);
+    if (ret != VS_SUCCESS) {
+        return ret;
+    }
+
+    if (p_vo_config->wbc_type > E_VO_SAMPLE_WBC_DISABLE &&
+        p_vo_config->wbc_type < E_VO_SAMPLE_WBC_SOURCE_TYPE_MAX) {
+        ret = sample_common_vo_wbc_enable(p_vo_config);
+        if (ret != VS_SUCCESS) {
+            goto failed0;
+        }
+    }
+
     ret = sample_common_vo_layer_enable(p_vo_config);
     if (ret != VS_SUCCESS) {
-        return VS_FAILED;
+        goto failed1;
     }
-
-    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_HDMI &&
-        p_vo_config->wbc_type != E_VO_SAMPLE_WBC_SOURCE_TYPE_DEVICE) {
-        g_output_type = p_vo_config->vo_output;
-#ifndef VS_ORION
-
-        memcpy(&g_hdmi_timing_info, &dev_attr.timing_info, sizeof(vs_vo_timing_s));
-        memcpy(&g_hdmi_clk_info, &clk, sizeof(vs_vo_clk_info_s));
-        if (sample_common_hdmi_start(p_vo_config->vo_output, p_vo_config->vo_intf_type) != VS_SUCCESS) {
-            vs_sample_trace("hdmi_start failed with 0x%x, registered a callback for hdmi hotplug\n", ret);
-        }
-#else
-        vs_sample_trace("error, hdmi not support for orion\n");
-#endif
-    }
-
-    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_MIPI &&
-        p_vo_config->wbc_type != E_VO_SAMPLE_WBC_SOURCE_TYPE_DEVICE)
-        sample_common_mipitx_start(p_vo_config->vo_output);
 
     ret = vs_mal_vo_commit(p_vo_config->vo_devid);
     if (ret != VS_SUCCESS) {
         vs_sample_trace("vs_mal_vo_commit(vo_devid %d) failed with 0x%x\n", p_vo_config->vo_devid, ret);
-        return VS_FAILED;
+        goto failed2;
     }
 
+    return ret;
+
+failed2:
+    sample_common_vo_chn_disable(p_vo_config);
+    vs_mal_vo_video_layer_unbind(p_vo_config->vo_layerid, p_vo_config->vo_devid);
+    vs_mal_vo_video_layer_disable(p_vo_config->vo_layerid);
+
+failed1:
+    if (p_vo_config->wbc_type > E_VO_SAMPLE_WBC_DISABLE &&
+        p_vo_config->wbc_type < E_VO_SAMPLE_WBC_SOURCE_TYPE_MAX) {
+        vs_mal_vo_wbc_disable(p_vo_config->vo_devid);
+    }
+
+failed0:
+    vs_mal_vo_disable(p_vo_config->vo_devid);
 
     return ret;
 }
 
-vs_int32_t sample_common_vo_stop(sample_vo_cfg_s* p_vo_config)
+vs_int32_t sample_common_vo_dev_stop(sample_vo_cfg_s* p_vo_config)
 {
     vs_int32_t vo_devid = p_vo_config->vo_devid;
     vs_int32_t vo_layerid = p_vo_config->vo_layerid;
@@ -1090,23 +1225,106 @@ vs_int32_t sample_common_vo_stop(sample_vo_cfg_s* p_vo_config)
         p_vo_config->wbc_type < E_VO_SAMPLE_WBC_SOURCE_TYPE_MAX)
         vs_mal_vo_wbc_disable(p_vo_config->vo_devid);
 
+    sample_common_vo_chn_disable(p_vo_config);
+    vs_mal_vo_video_layer_unbind(vo_layerid, vo_devid);
+    vs_mal_vo_video_layer_disable(vo_layerid);
+    vs_mal_vo_disable(vo_devid);
+    vs_mal_vo_commit(vo_devid);
+
+    return VS_SUCCESS;
+}
+
+vs_int32_t sample_common_vo_intf_start(sample_vo_cfg_s* p_vo_config)
+{
+    vs_int32_t ret;
+
+    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_MIPI &&
+        p_vo_config->wbc_type != E_VO_SAMPLE_WBC_SOURCE_TYPE_DEVICE) {
+        if (p_vo_config->vo_output == E_VO_OUTPUT_TYPE_USER
+            && p_vo_config->timing.vactive == 0) {
+            sample_common_vo_intf_user_timing_get(p_vo_config);
+        }
+
+        ret = sample_common_mipitx_start(p_vo_config->vo_output,
+            &p_vo_config->timing, &p_vo_config->clk_info, p_vo_config->mipitx_phy_rate);
+        if (ret != VS_SUCCESS) {
+            vs_sample_trace("sample_common_mipitx_start(vo_devid %d) failed with 0x%x\n", p_vo_config->vo_devid, ret);
+            return ret;
+        }
+    }
+
+    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_HDMI &&
+        p_vo_config->wbc_type != E_VO_SAMPLE_WBC_SOURCE_TYPE_DEVICE) {
 #ifndef VS_ORION
-    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_HDMI) {
+        if (p_vo_config->vo_output == E_VO_OUTPUT_TYPE_USER
+            && p_vo_config->timing.vactive == 0) {
+            sample_common_vo_intf_user_timing_get(p_vo_config);
+        }
+
+        ret = sample_common_hdmi_start(p_vo_config);
+        if (ret != VS_SUCCESS) {
+
+            vs_sample_trace("sample_common_hdmi_start(vo_devid %d) failed with 0x%x\n", p_vo_config->vo_devid, ret);
+            if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_MIPI &&
+                p_vo_config->wbc_type != E_VO_SAMPLE_WBC_SOURCE_TYPE_DEVICE) {
+                sample_common_mipitx_stop();
+            }
+            return ret;
+        }
+#else
+        vs_sample_trace("error, hdmi not support for orion\n");
+#endif
+    }
+
+    return ret;
+}
+
+vs_int32_t sample_common_vo_intf_stop(sample_vo_cfg_s* p_vo_config)
+{
+#ifndef VS_ORION
+    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_HDMI &&
+        p_vo_config->wbc_type != E_VO_SAMPLE_WBC_SOURCE_TYPE_DEVICE) {
         sample_common_hdmi_stop();
         memset(&g_hdmi_timing_info, 0, sizeof(vs_vo_timing_s));
         memset(&g_hdmi_clk_info, 0, sizeof(vs_vo_clk_info_s));
     }
 #endif
 
-    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_MIPI) {
+    if (p_vo_config->vo_intf_type & E_VO_INTERFACE_TYPE_MIPI &&
+        p_vo_config->wbc_type != E_VO_SAMPLE_WBC_SOURCE_TYPE_DEVICE) {
         sample_common_mipitx_stop();
     }
 
-    sample_common_vo_chn_disable(p_vo_config);
-    vs_mal_vo_video_layer_unbind(vo_layerid, vo_devid);
-    vs_mal_vo_video_layer_disable(vo_layerid);
-    vs_mal_vo_disable(vo_devid);
-    vs_mal_vo_commit(vo_devid);
+    return VS_SUCCESS;
+}
+
+vs_int32_t sample_common_vo_start(sample_vo_cfg_s* p_vo_config)
+{
+    vs_int32_t ret;
+
+    ret = sample_common_vo_dev_start(p_vo_config);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("sample_common_vo_dev_start(vo_devid %d) failed with 0x%x\n", p_vo_config->vo_devid, ret);
+        return VS_FAILED;
+    }
+
+    ret = sample_common_vo_intf_start(p_vo_config);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("sample_common_vo_intf_start(vo_devid %d) failed with 0x%x\n", p_vo_config->vo_devid, ret);
+        goto failed;
+    }
+
+    return ret;
+
+failed:
+    sample_common_vo_dev_stop(p_vo_config);
+    return ret;
+}
+
+vs_int32_t sample_common_vo_stop(sample_vo_cfg_s* p_vo_config)
+{
+    sample_common_vo_intf_stop(p_vo_config);
+    sample_common_vo_dev_stop(p_vo_config);
 
     return VS_SUCCESS;
 }

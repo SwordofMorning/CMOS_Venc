@@ -34,15 +34,17 @@
 extern "C" {
 #endif
 
-	typedef struct vs_acodec_agc_attr {
-		vs_int32_t enable;
-		vs_int32_t sample_rate;
-		vs_int32_t max_level; ///< low 16-bit
-		vs_int32_t min_level;
-		vs_float_t alc_vol;  ///< -18dB ~ 28.5dB, step: 1.5dB
-	} vs_acodec_agc_attr_s;
+typedef struct vs_acodec_agc_attr {
+	vs_int32_t enable;
+	vs_int32_t sample_rate;
+	vs_int32_t max_level; ///< low 16-bit
+	vs_int32_t min_level;
+	vs_float_t alc_vol;  ///< -18dB ~ 28.5dB, step: 1.5dB
+} vs_acodec_agc_attr_s;
 #define VS_ACODEC_ENABLE_AGC	                _IOW(VS_IOC_ACODEC_MAGIC, 77, vs_acodec_agc_attr_s)
 #define VS_ACODEC_SET_MIC_BIAS_VOLTAGE	        _IOW(VS_IOC_ACODEC_MAGIC, 70, vs_int32_t)
+
+#define VS_MIXER_FRAME_SAMPLES                     (1024)
 
 typedef struct vs_thread_aenc {
 	vs_bool_t        is_start;
@@ -146,6 +148,34 @@ typedef struct vs_thread_adec_source {
 
 } vs_thread_adec_source_s;
 
+typedef struct vs_thread_volte {
+	vs_bool_t        is_start;
+	vs_int32_t       ai_devid;
+	vs_int32_t       ai_chnid;
+
+	pthread_t        pid; /* thread pid */
+
+	vs_int32_t       ao_devid;
+	vs_int32_t       ao_chnid;
+
+	vs_aiodev_attr_s aio_attr;
+
+	vs_bool_t        send_to_file;
+	char             ofile_name[128];
+
+} vs_thread_volte_s;
+
+typedef struct vs_thread_tts {
+	vs_bool_t        is_start;
+	vs_int32_t       ai_devid;
+
+	pthread_t        pid; /* thread pid */
+
+	vs_int32_t       ao_devid;
+
+	vs_aiodev_attr_s aio_common_attr;
+} vs_thread_tts_s;
+
 typedef void (*udp_data_recv_callback)(unsigned char *buf, int len);
 typedef void (*udp_data_send_callback)(unsigned char **buf, int *len);
 
@@ -183,9 +213,46 @@ static vs_thread_aenc_source_s s_thread_aenc_source[AENC_CHN_NUM_MAX] = {0};
 static vs_thread_adec_sink_s   s_thread_adec_sink[ADEC_CHN_NUM_MAX] = {0};
 static vs_thread_adec_source_s s_thread_adec_source[ADEC_CHN_NUM_MAX] = {0};
 
+static vs_thread_volte_s       s_thread_volte = {0};
+
+static vs_thread_tts_s         s_thread_tts = {0};
+static vs_bool_t               s_tts_send = VS_FALSE;
+static short                  *sp_tts = NULL;
+
 static char *gp_outfile_buffer = NULL;
 static int   g_outfile_size = 0;
 static int   g_outfile_pos = 0;
+
+static int get_tts_buffer(short **buf)
+{
+	static int    s_sample_count = 0;
+	if (sp_tts == NULL) {
+		FILE *fp = fopen("tts.pcm", "rb");
+		if (!fp) {
+			vs_sample_trace("Open tts.pcm failed\n");
+			return -1;
+		}
+
+		fseek(fp, 0, SEEK_END);
+		s_sample_count = ftell(fp) / 2;
+		fseek(fp, 0, SEEK_SET);
+
+		sp_tts = (short *)malloc(sizeof(short) * s_sample_count);
+		if (!sp_tts) {
+			vs_sample_trace("ERROR: fail to malloc for file read\n");
+			exit(0);
+		}
+
+		if (fread(sp_tts, 1, sizeof(short) * s_sample_count, fp) != sizeof(short) * s_sample_count) {
+			vs_sample_trace("ERROR: fail to malloc for file read\n");
+			exit(0);
+		}
+
+		fclose(fp);
+	}
+	*buf = sp_tts;
+	return s_sample_count;
+}
 
 void get_date_str(char *p_date)
 {
@@ -218,14 +285,14 @@ int load_audio_data_file(int load_new_file)
 		g_outfile_pos = 0;
 	}
 
-		do {
-			printf("Load New Data File:");
-			ret = scanf("%s", data_file);
-			getchar();
-			if (ret < 0) {
-				printf("scanf fails.\n");
-				continue;
-			}
+	do {
+		printf("Load New Data File:");
+		ret = scanf("%127s", data_file);
+		getchar();
+		if (ret < 0) {
+			printf("scanf fails.\n");
+			continue;
+		}
 
 		fp = fopen(data_file, "rb");
 
@@ -251,12 +318,18 @@ int load_audio_data_file(int load_new_file)
 
 	if (!gp_outfile_buffer) {
 		printf("ERROR: fail to malloc for file read\n");
+		fclose(fp);
 		exit(0);
 	}
 
 	printf("File Buffer: %p, File Size: %08x\n", gp_outfile_buffer, g_outfile_size);
 
 	if (fread(gp_outfile_buffer, 1, g_outfile_size, fp) != g_outfile_size) {
+		if (gp_outfile_buffer) {
+			free(gp_outfile_buffer);
+			gp_outfile_buffer = NULL;
+			fclose(fp);
+		}
 		printf("ERROR: read file data fails\n");
 		exit(0);
 	}
@@ -276,6 +349,10 @@ static int read_file(char *pdst, int size)
 	if (!gp_outfile_buffer || !g_outfile_size) {
 		vs_sample_trace("WARN: the source data file has not been loaded\n");
 		vs_sample_trace("Please select 0001 to load the data file firstly\n")
+		if (gp_outfile_buffer) {
+			free(gp_outfile_buffer);
+			gp_outfile_buffer = NULL;
+		}
 		exit(-1);
 	}
 
@@ -308,6 +385,39 @@ static int read_pcm_data(char *pdst, int size)
 	}
 
 	return size;
+}
+
+static void load_audio_frame(vs_audio_frame_s *audio_frame)
+{
+	int read_size;
+
+	if (!gp_outfile_buffer || !g_outfile_size) {
+		vs_sample_trace("WARN: the source data file has not been loaded\n");
+		vs_sample_trace("Please select 0001 to load the data file firstly\n")
+		exit(-1);
+	}
+
+	read_size = audio_frame->frame_chn_bytes;
+
+	if (g_outfile_pos + read_size <= g_outfile_size) {
+		memcpy(audio_frame->p_virt_addr[0], gp_outfile_buffer + g_outfile_pos, read_size);
+		g_outfile_pos += read_size;
+
+		if (g_outfile_pos == g_outfile_size) {
+			g_outfile_pos = 0;
+			printf("file rewind\n");
+		}
+	}
+	else if (g_outfile_pos + read_size > g_outfile_size) {
+		int left_size;
+		left_size = g_outfile_size - g_outfile_pos;
+		memcpy(audio_frame->p_virt_addr[0], gp_outfile_buffer + g_outfile_pos, left_size);
+		memcpy(audio_frame->p_virt_addr[0] + left_size, gp_outfile_buffer, read_size - left_size);
+		g_outfile_pos = read_size - left_size;
+		printf("file rewind\n");
+	}
+
+	return;
 }
 
 static inline vs_bool_t jb_is_full(simple_jitter_buffer_t *p_jb)
@@ -597,7 +707,8 @@ static vs_int32_t jb_init(simple_jitter_buffer_t *p_jb)
 	return VS_SUCCESS;
 }
 
-vs_int32_t sample_common_rtc_speech_jb_init() {
+vs_int32_t sample_common_rtc_speech_jb_init()
+{
 	vs_int32_t ret;
 	ret = jb_init(&s_ain_buf);
 	ret = jb_init(&s_aout_buf);
@@ -615,7 +726,8 @@ vs_int32_t jb_exit(simple_jitter_buffer_t *p_jb)
 	return VS_SUCCESS;
 }
 
-vs_int32_t sample_common_rtc_speech_jb_exit() {
+vs_int32_t sample_common_rtc_speech_jb_exit()
+{
 	vs_int32_t ret;
 	ret = jb_exit(&s_ain_buf);
 	ret = jb_exit(&s_aout_buf);
@@ -1239,7 +1351,7 @@ vs_int32_t sample_common_ain_start(vs_int32_t ai_devid, vs_aiodev_attr_s *p_aio_
 	}
 
 	if (ai_devid == 0 && p_aio_attr->i2s_target == E_AIO_CONNECT_INNER_CODEC) {
-		sample_common_acodec_set(-1, -1, 20, 0, 3, -1, -1);
+		sample_common_acodec_set(-1, -1, 13, 0, 3, -1, -1);
 	}
 
 	return VS_SUCCESS;
@@ -2570,30 +2682,31 @@ vs_int32_t sample_common_acodec_set(vs_int32_t input_gain, vs_int32_t output_gai
 
 	if (mic_boost != NA_GAIN) {
 
-		if (mic_boost == 0 || mic_boost == 6 || mic_boost == 20 || mic_boost == 30) {
+		if (mic_boost == 0 || mic_boost == 6 || mic_boost == 13 || mic_boost == 20) {
 			reg_val = 0;
 
 			if (mic_boost == 6) {
 				reg_val = 1;
 			}
-			else if (mic_boost == 20) {
+			else if (mic_boost == 13) {
 				reg_val = 2;
 			}
-			else if (mic_boost == 30) {
+			else if (mic_boost == 20) {
 				reg_val = 3;
 			}
 
 			ioctl(g_acodec_fd, VS_ACODEC_MICL_BOOST_SET, &reg_val);
 			ioctl(g_acodec_fd, VS_ACODEC_MICR_BOOST_SET, &reg_val);
 
-				reg_val = 7;
-				ioctl(g_acodec_fd, VS_ACODEC_SET_MIC_BIAS_VOLTAGE, &reg_val);
+			reg_val = 7;
+			ioctl(g_acodec_fd, VS_ACODEC_SET_MIC_BIAS_VOLTAGE, &reg_val);
 
-			} else {
-				vs_sample_trace("ERROR: Invalid MIC boost gain<%d>, should be [0, 6, 20, 30]\n", mic_boost);
-				return VS_ERR_AUDIO_INVALID_PARAM;
-			}
 		}
+		else {
+			vs_sample_trace("ERROR: Invalid MIC boost gain<%d>, should be [0, 6, 20, 30]\n", mic_boost);
+			return VS_ERR_AUDIO_INVALID_PARAM;
+		}
+	}
 
 	if (mic_gain != NA_GAIN) {
 		/* 29dB is regarded as 28.5dB */
@@ -2654,19 +2767,19 @@ vs_int32_t sample_common_acodec_set(vs_int32_t input_gain, vs_int32_t output_gai
 	return 0;
 }
 
-	vs_int32_t sample_common_acodec_alc_set(void *attr)
-	{
-		vs_acodec_agc_attr_s *attr_inner = (vs_acodec_agc_attr_s *)attr;
-		CHECK_OPENED();
+vs_int32_t sample_common_acodec_alc_set(void *attr)
+{
+	vs_acodec_agc_attr_s *attr_inner = (vs_acodec_agc_attr_s *)attr;
+	CHECK_OPENED();
 
-		vs_sample_trace("INFO: agc_enable, enable[%d], samplerate[%d], alc_vol[%f], max_level[%d], min_level[%d]\n",
-				attr_inner->enable,
-				attr_inner->sample_rate,
-				attr_inner->alc_vol,
-				attr_inner->max_level,
-				attr_inner->min_level);
-		return ioctl(g_acodec_fd, VS_ACODEC_ENABLE_AGC, attr_inner);
-	}
+	vs_sample_trace("INFO: agc_enable, enable[%d], samplerate[%d], alc_vol[%f], max_level[%d], min_level[%d]\n",
+	                attr_inner->enable,
+	                attr_inner->sample_rate,
+	                attr_inner->alc_vol,
+	                attr_inner->max_level,
+	                attr_inner->min_level);
+	return ioctl(g_acodec_fd, VS_ACODEC_ENABLE_AGC, attr_inner);
+}
 
 
 static void* rtc_aout_thread(void *p_arg)
@@ -2711,12 +2824,14 @@ static void* rtc_aout_thread(void *p_arg)
 					if (VS_SUCCESS != vs_mal_aout_frame_send(ao_devid, ao_chnid, &audio_frame, 0)) {
 						vs_sample_trace("vs_mal_aout_frame_send() fails in select mode\n");
 					}
-				} else {
+				}
+				else {
 					memcpy(audio_frame.p_virt_addr[0], jb_read_address(&s_aout_buf), s_aout_buf.frame_size);
 					memcpy(audio_frame.p_virt_addr[1], jb_read_address(&s_aout_buf), s_aout_buf.frame_size);
 					if (VS_SUCCESS != vs_mal_aout_frame_send(ao_devid, ao_chnid, &audio_frame, 0)) {
 						vs_sample_trace("vs_mal_aout_frame_send() fails in select mode\n");
-					}	else {
+					}
+					else {
 						// vs_sample_trace("vs_mal_aout_frame_send() success\n");
 						jb_remove_data(&s_aout_buf);
 					}
@@ -2879,6 +2994,465 @@ vs_int32_t sample_common_rtc_ain_thread_destroy()
 		p_ain->is_start = 0;
 		pthread_join(p_ain->pid, 0);
 	}
+
+	return 0;
+}
+
+static void* volte_thread(void *p_arg)
+{
+	vs_thread_volte_s *p_volte = (vs_thread_volte_s *)p_arg;
+
+	vs_audio_frame_s   audio_frame;
+	vs_int32_t         ai_devid;
+	vs_int32_t         ai_chnid;
+	vs_int32_t         ao_devid;
+	vs_int32_t         ao_chnid;
+	FILE              *fp = NULL;
+	char               thread_name[32];
+
+	if (p_volte->send_to_file) {
+		if (!(fp = fopen(p_volte->ofile_name, "wb"))) {
+			vs_sample_trace("Fail to create file (%s)\n", p_volte->ofile_name);
+		}
+		else {
+			vs_sample_trace("Save AIN file to %s\n", p_volte->ofile_name);
+		}
+	}
+
+	ai_devid = p_volte->ai_devid;
+	ai_chnid = p_volte->ai_chnid;
+	ao_devid = p_volte->ao_devid;
+	ao_chnid = p_volte->ao_chnid;
+
+	snprintf(thread_name, sizeof(thread_name), "volte_thread");
+	prctl(PR_SET_NAME, thread_name);
+
+	while(p_volte->is_start) {
+		if (VS_SUCCESS != vs_mal_ain_frame_acquire(ai_devid, ai_chnid, &audio_frame, NULL, -1)) {
+			if (p_volte->is_start) {
+				vs_sample_trace("break as vs_mal_ain_frame_acquire() fails\n");
+			}
+			break;
+		}
+
+		if (VS_SUCCESS != vs_mal_aout_frame_send(ao_devid, ao_chnid, &audio_frame, -1)) {
+			vs_sample_trace("Fail return from vs_mal_aout_frame_send()\n");
+			break;
+		}
+
+		if (VS_SUCCESS != vs_mal_ain_frame_release(ai_devid, ai_chnid, &audio_frame, NULL)) {
+			vs_sample_trace("vs_mal_ain_frame_release fails\n");
+			break;
+		}
+	}
+
+	s_tts_send = VS_FALSE;
+
+	p_volte->is_start = VS_FALSE;
+
+	if (fp) {
+		fclose(fp);
+	}
+
+	return NULL;
+}
+
+vs_int32_t sample_common_volte_thread_create(vs_int32_t ai_devid, vs_int32_t ai_chnid, vs_int32_t ao_devid, vs_int32_t ao_chnid,
+        vs_bool_t send_to_file)
+{
+	pthread_attr_t            pthread_attr;
+	struct sched_param        param;
+	vs_thread_volte_s        *p_volte;
+	char                      date[16];
+
+	vs_sample_trace("To Create VoLTE Thread\n");
+
+	p_volte = &s_thread_volte;
+	p_volte->is_start = 1;
+	p_volte->ai_devid = ai_devid;
+	p_volte->ai_chnid = ai_chnid;
+	p_volte->ao_devid = ao_devid;
+	p_volte->ao_chnid = ao_chnid;
+	p_volte->send_to_file = send_to_file;
+
+	if (p_volte->send_to_file) {
+		get_date_str(date);
+		snprintf(p_volte->ofile_name, sizeof(p_volte->ofile_name), "./aidev%dch%d_%s.pcm", ai_devid, ai_chnid, date);
+	}
+	else {
+		p_volte->ofile_name[0] = '\0';
+	}
+
+	pthread_attr_init(&pthread_attr);
+	param.sched_priority = 90;
+	pthread_attr_setschedpolicy(&pthread_attr, SCHED_FIFO);
+	pthread_attr_setschedparam(&pthread_attr, &param);
+	pthread_attr_setinheritsched(&pthread_attr, PTHREAD_EXPLICIT_SCHED);
+
+	pthread_create(&p_volte->pid, &pthread_attr, volte_thread, p_volte);
+
+	return 0;
+}
+
+vs_int32_t sample_common_volte_thread_destroy(vs_int32_t ai_devid, vs_int32_t ai_chnid)
+{
+	vs_thread_volte_s *p_volte;
+
+	vs_sample_trace("To Destroy VoLTE Thread\n");
+
+	p_volte = &s_thread_volte;
+
+	if (p_volte->is_start) {
+		p_volte->is_start = 0;
+		pthread_join(p_volte->pid, 0);
+	}
+
+	memset(p_volte, 0, sizeof(*p_volte));
+
+	return 0;
+}
+
+static void* voip_aout_sink_thread(void *p_arg)
+{
+	vs_thread_aout_sink_s *p_voip_aout = (vs_thread_aout_sink_s *)p_arg;
+	vs_int16_t            *p_tts_data, *p_tts_base = NULL;
+	vs_int32_t             ao_devid;
+	vs_int32_t             ao_chnid;
+	vs_audio_frame_s       audio_frame = {0};
+	vs_int32_t             tts_cnt, frame_cnt;
+	char                   thread_name[32];
+
+	reset_audio_data_file();
+
+	ao_devid = p_voip_aout->ao_devid;
+	ao_chnid = p_voip_aout->ao_chnid;
+
+	snprintf(thread_name, sizeof(thread_name), "voip_aout_sink_thread");
+	prctl(PR_SET_NAME, thread_name);
+
+	audio_frame.frame_chn_bytes = p_voip_aout->aio_attr.frame_sample_num * 2;
+	audio_frame.sound_mode = E_AUDIO_SOUND_MODE_STEREO;
+	audio_frame.sample_width = E_AUDIO_SAMPLE_BITWIDTH_16;
+	audio_frame.frame_no = 0;
+	audio_frame.pts = 0;
+
+	if (!(audio_frame.p_virt_addr[0] = (vs_uint8_t *)malloc(audio_frame.frame_chn_bytes * 2))) {
+		vs_sample_trace("Fail to allocate dynamic memory\n");
+		return NULL;
+	}
+	audio_frame.p_virt_addr[1] = audio_frame.p_virt_addr[0] + audio_frame.frame_chn_bytes;
+
+	tts_cnt = get_tts_buffer(&p_tts_base);
+	p_tts_data = p_tts_base;
+	frame_cnt = tts_cnt / VS_MIXER_FRAME_SAMPLES;
+
+	if (VS_SUCCESS != vs_mal_aout_dualmode_set(ao_devid, E_AUDIO_DUAL_MIX)) {
+		vs_sample_trace("vs_mal_aout_dualmode_set MIX failed\n");
+	}
+
+	while(p_voip_aout->is_start) {
+
+		load_audio_frame(&audio_frame);
+
+		if (s_tts_send) {
+			if (frame_cnt > 0) {
+				memcpy(audio_frame.p_virt_addr[1], p_tts_data, VS_MIXER_FRAME_SAMPLES * 2);
+				frame_cnt--;
+				p_tts_data += VS_MIXER_FRAME_SAMPLES;
+			}
+			else {
+				s_tts_send = VS_FALSE;
+			}
+		}
+
+		if (VS_SUCCESS != vs_mal_aout_frame_send(ao_devid, ao_chnid, &audio_frame, -1)) {
+			if (p_voip_aout->is_start) {
+				vs_sample_trace("break as vs_mal_aout_frame_send() fails\n");
+			}
+			break;
+		}
+
+		audio_frame.frame_no++;
+		audio_frame.pts += 1000 * p_voip_aout->aio_attr.frame_sample_num / p_voip_aout->aio_attr.sample_rate;
+
+	}
+
+	if (audio_frame.p_virt_addr[0]) {
+		free(audio_frame.p_virt_addr[0]);
+	}
+
+	p_voip_aout->is_start = VS_FALSE;
+
+	s_tts_send = VS_FALSE;
+
+	vs_sample_trace("QUIT VOIP AOUT SINK THREAD\n");
+
+	return NULL;
+}
+
+vs_int32_t sample_common_voip_aout_sink_thread_create(vs_int32_t ao_devid, vs_int32_t ao_chnid, vs_aiodev_attr_s *p_aout_common_attr)
+{
+	pthread_attr_t            pthread_attr;
+	struct sched_param        param;
+	vs_thread_aout_sink_s    *p_voip_aout;
+
+	vs_sample_trace("To Create VoIP AOUT SINK Thread\n");
+
+	p_voip_aout = &s_thread_aout_sink[ao_devid][ao_chnid];
+	p_voip_aout->is_start = 1;
+	p_voip_aout->ao_devid = ao_devid;
+	p_voip_aout->ao_chnid = ao_chnid;
+	p_voip_aout->fp = NULL;
+	memcpy(&p_voip_aout->aio_attr, p_aout_common_attr, sizeof(*p_aout_common_attr));
+
+	pthread_attr_init(&pthread_attr);
+	param.sched_priority = 90;
+	pthread_attr_setschedpolicy(&pthread_attr, SCHED_FIFO);
+	pthread_attr_setschedparam(&pthread_attr, &param);
+	pthread_attr_setinheritsched(&pthread_attr, PTHREAD_EXPLICIT_SCHED);
+
+	pthread_create(&p_voip_aout->pid, &pthread_attr, voip_aout_sink_thread, p_voip_aout);
+
+	return 0;
+}
+
+vs_int32_t sample_common_voip_aout_sink_thread_destroy(vs_int32_t ao_devid, vs_int32_t ao_chnid)
+{
+	vs_thread_aout_sink_s    *p_voip_aout;
+
+	p_voip_aout = &s_thread_aout_sink[ao_devid][ao_chnid];
+
+	if (p_voip_aout->is_start) {
+		p_voip_aout->is_start = 0;
+		pthread_join(p_voip_aout->pid, 0);
+	}
+
+	return 0;
+}
+
+static void* voip_ain_source_thread(void *p_arg)
+{
+	vs_thread_ain_source_s *p_voip_ain = (vs_thread_ain_source_s *)p_arg;
+
+	vs_audio_frame_s        audio_frame;
+	vs_int32_t              ai_devid;
+	vs_int32_t              ai_chnid;
+	vs_int32_t              aenc_chnid;
+	FILE                   *fp = NULL;
+
+	char thread_name[32];
+
+	if (p_voip_ain->send_to_file) {
+		if (!(fp = fopen(p_voip_ain->ofile_name, "wb"))) {
+			vs_sample_trace("Fail to create file (%s)\n", p_voip_ain->ofile_name);
+		}
+		else {
+			vs_sample_trace("Save AIN file to %s\n", p_voip_ain->ofile_name);
+		}
+	}
+
+	ai_devid = p_voip_ain->ai_devid;
+	ai_chnid = p_voip_ain->ai_chnid;
+	aenc_chnid = p_voip_ain->aenc_chnid;
+
+	snprintf(thread_name, sizeof(thread_name), "voip_ain_source_%d_%d", ai_devid, ai_chnid);
+	prctl(PR_SET_NAME, thread_name);
+
+	while (p_voip_ain->is_start) {
+		if (VS_SUCCESS != vs_mal_ain_frame_acquire(ai_devid, ai_chnid, &audio_frame, NULL, -1)) {
+			if (p_voip_ain->is_start) {
+				vs_sample_trace("break as vs_mal_ain_frame_acquire() failes\n");
+			}
+
+			break;
+		}
+
+		if (p_voip_ain->send_to_aenc) {
+			if (VS_SUCCESS != vs_mal_aenc_frame_send(aenc_chnid, &audio_frame, NULL)) {
+				vs_sample_trace("Fail return from vs_mal_aenc_frame_send\n");
+				break;
+			}
+		}
+
+		if (fp) {
+			write_audio_frame_to_file(&audio_frame, E_AUDIO_SAMPLE_BITWIDTH_16, fp);
+		}
+
+		if (VS_SUCCESS != vs_mal_ain_frame_release(ai_devid, ai_chnid, &audio_frame, NULL)) {
+			vs_sample_trace("vs_mal_ain_frame_release fails\n");
+		}
+	}
+
+	if (fp)
+		fclose(fp);
+
+	vs_sample_trace("QUIT VOIP AIN SOURCE THREAD\n");
+
+	return NULL;
+}
+
+vs_int32_t sample_common_voip_ain_source_thread_create(vs_int32_t ai_devid, vs_int32_t ai_chnid, vs_int32_t aenc_chnid,
+        vs_bool_t send_to_file)
+{
+	pthread_attr_t            pthread_attr;
+	struct sched_param        param;
+	vs_thread_ain_source_s   *p_voip_ain;
+	char                      date[16];
+
+	vs_sample_trace("To Create VoIP AIN(%d, %d) SOURCE Thread\n", ai_devid, ai_chnid);
+
+	p_voip_ain = &s_thread_ain_source[ai_devid][ai_chnid];
+	p_voip_ain->is_start = 1;
+	p_voip_ain->ai_devid = ai_devid;
+	p_voip_ain->ai_chnid = ai_chnid;
+	p_voip_ain->send_to_aenc = VS_TRUE;
+	p_voip_ain->aenc_chnid = aenc_chnid;
+	p_voip_ain->send_to_aout = VS_FALSE;
+	p_voip_ain->ao_devid = -1;
+	p_voip_ain->ao_chnid = -1;
+	p_voip_ain->send_to_file = send_to_file;
+
+	if (p_voip_ain->send_to_file) {
+		get_date_str(date);
+		snprintf(p_voip_ain->ofile_name, sizeof(p_voip_ain->ofile_name), "./aidev%dch%d_%s.pcm", ai_devid, ai_chnid, date);
+	}
+	else {
+		p_voip_ain->ofile_name[0] = '\0';
+	}
+
+	pthread_attr_init(&pthread_attr);
+	param.sched_priority = 90;
+	pthread_attr_setschedpolicy(&pthread_attr, SCHED_FIFO);
+	pthread_attr_setschedparam(&pthread_attr, &param);
+	pthread_attr_setinheritsched(&pthread_attr, PTHREAD_EXPLICIT_SCHED);
+
+	pthread_create(&p_voip_ain->pid, &pthread_attr, voip_ain_source_thread, p_voip_ain);
+
+	return 0;
+}
+
+vs_int32_t sample_common_voip_ain_source_thread_destroy(vs_int32_t ai_devid, vs_int32_t ai_chnid)
+{
+	vs_thread_ain_source_s *p_voip_ain;
+
+	vs_sample_trace("To Destory VoIP AIN(%d, %d) SOURCE Thread\n", ai_devid, ai_chnid);
+
+	p_voip_ain = &s_thread_ain_source[ai_devid][ai_chnid];
+
+	if (p_voip_ain->is_start) {
+		p_voip_ain->is_start = 0;
+		pthread_join(p_voip_ain->pid, 0);
+	}
+
+	memset(p_voip_ain, 0, sizeof(*p_voip_ain));
+
+	return 0;
+}
+
+
+static void* tts_thread(void *p_arg)
+{
+	vs_thread_tts_s *p_tts = (vs_thread_tts_s *)p_arg;
+	vs_int32_t       ai_devid, ai_chnid;
+	char             thread_name[32];
+	vs_int16_t      *p_tts_data, *p_tts_base = NULL;
+	vs_int32_t       sample_cnt, frame_cnt;
+	vs_audio_frame_s tts_frame;
+
+	snprintf(thread_name, sizeof(thread_name), "tts_thread");
+	prctl(PR_SET_NAME, thread_name);
+
+	ai_devid = p_tts->ai_devid;
+	ai_chnid = 0;
+
+	tts_frame.frame_chn_bytes = VS_MIXER_FRAME_SAMPLES * 2;
+	tts_frame.sound_mode = E_AUDIO_SOUND_MODE_STEREO;
+	tts_frame.sample_width = E_AUDIO_SAMPLE_BITWIDTH_16;
+	tts_frame.frame_no = 0;
+	tts_frame.pts = 0;
+
+	if (!(tts_frame.p_virt_addr[0] = (vs_uint8_t *)malloc(tts_frame.frame_chn_bytes * 2))) {
+		vs_sample_trace("Fail to allocate dynamic memory\n");
+		return NULL;
+	}
+	tts_frame.p_virt_addr[1] = tts_frame.p_virt_addr[0] + tts_frame.frame_chn_bytes;
+
+	sample_cnt = get_tts_buffer(&p_tts_base);
+	p_tts_data = p_tts_base;
+	frame_cnt = sample_cnt / VS_MIXER_FRAME_SAMPLES;
+
+	s_tts_send = VS_TRUE;
+
+	sleep(10); // send tts frames after 10s
+
+	while (frame_cnt > 0 && p_tts->is_start) {
+		memcpy(tts_frame.p_virt_addr[0], p_tts_data, VS_MIXER_FRAME_SAMPLES * 2);
+
+		if (VS_SUCCESS != vs_mal_ain_mixer_frame_send(ai_devid, ai_chnid, &tts_frame, 0)) {
+			continue;
+		}
+		frame_cnt--;
+		p_tts_data += VS_MIXER_FRAME_SAMPLES;
+	}
+
+
+	if (tts_frame.p_virt_addr[0]) {
+		free(tts_frame.p_virt_addr[0]);
+	}
+
+	while(s_tts_send) {
+		sleep(1);
+	}
+
+	if (p_tts_base) {
+		free(p_tts_base);
+		sp_tts = NULL;
+	}
+
+	vs_sample_trace("QUIT TTS Thread\n");
+
+	return NULL;
+}
+
+vs_int32_t sample_common_tts_thread_create(vs_int32_t ai_devid, vs_int32_t ao_devid, vs_aiodev_attr_s *p_aio_common_attr)
+{
+	pthread_attr_t            pthread_attr;
+	struct sched_param        param;
+	vs_thread_tts_s          *p_tts;
+
+	vs_sample_trace("To Create TTS Thread\n");
+
+	p_tts = &s_thread_tts;
+	p_tts->is_start = 1;
+	p_tts->ai_devid = ai_devid;
+	p_tts->ao_devid = ao_devid;
+	memcpy(&p_tts->aio_common_attr, p_aio_common_attr, sizeof(*p_aio_common_attr));
+
+	pthread_attr_init(&pthread_attr);
+	param.sched_priority = 90;
+	pthread_attr_setschedpolicy(&pthread_attr, SCHED_FIFO);
+	pthread_attr_setschedparam(&pthread_attr, &param);
+	pthread_attr_setinheritsched(&pthread_attr, PTHREAD_EXPLICIT_SCHED);
+
+	pthread_create(&p_tts->pid, &pthread_attr, tts_thread, p_tts);
+
+	return 0;
+}
+
+vs_int32_t sample_common_tts_thread_destory()
+{
+	vs_thread_tts_s *p_tts;
+
+	vs_sample_trace("To Destory TTS Thread\n");
+
+	p_tts = &s_thread_tts;
+
+	if (p_tts->is_start) {
+		p_tts->is_start = 0;
+		pthread_join(p_tts->pid, 0);
+	}
+
+	memset(p_tts, 0, sizeof(*p_tts));
 
 	return 0;
 }

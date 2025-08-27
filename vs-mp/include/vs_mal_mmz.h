@@ -142,6 +142,21 @@ vs_int32_t vs_mal_sys_cache_invalidate(
 		vs_uint64_t phys_addr, vs_void_t *virt_addr,
 		vs_uint32_t size);
 
+/**
+* @ingroup      vs_mal_sys_physaddr_get_by_virtaddr
+* @brief        get physical address of virtual address
+* @details      the virtual address should be return value of vs_mal_sys_mmap or vs_mal_sys_mmap_cached
+* @param [out]  p_phys_addr     mmb physical address
+* @param [in]   virt_addr       mmb virtual address
+* @retval       VS_SUCCESS      no error
+* @retval       others          error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_sys_physaddr_get_by_virtaddr(vs_uint64_t *p_phys_addr, vs_void_t *virt_addr);
 
 #ifdef __cplusplus
 }

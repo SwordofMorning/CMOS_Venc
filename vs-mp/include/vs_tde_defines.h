@@ -195,24 +195,37 @@ typedef struct vs_tde_surface_list {
     vs_tde_compose_s  *p_compose;      ///< compose src surface attr
 } vs_tde_surface_list_s;
 
-///< parameter is illegal */
-#define VS_ERR_TDE_INVALID_PARAM    VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_INVALID_PARAM)
+/**
+* @brief Definition of draw line attr
+* @details
+*/
+typedef struct vs_tde_line_attr {
+    vs_point_s     start;               ///< the start point of a line
+    vs_point_s     end;                 ///< the end point of a line
+    vs_uint32_t    width;               ///< the line color width, means how many pixels of the line body width
+    vs_uint32_t    color;               ///< the value of color for the line
+} vs_tde_line_attr_s;
+
+///< parameter is illegal
+#define VS_ERR_TDE_INVALID_PARAM            VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_INVALID_PARAM)
 ///< using a NULL pointer
-#define VS_ERR_TDE_NULL_PTR        VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NULL_PTR)
+#define VS_ERR_TDE_NULL_PTR                 VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NULL_PTR)
 ///< using a unexist handle
-#define VS_ERR_TDE_UNEXIST        VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_UNEXIST)
+#define VS_ERR_TDE_UNEXIST                  VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_UNEXIST)
 ///< not support
-#define VS_ERR_TDE_NOT_SUPPORT        VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NOT_SUPPORT)
+#define VS_ERR_TDE_NOT_SUPPORT              VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NOT_SUPPORT)
 ///< system is not ready
-#define VS_ERR_TDE_NOT_INITIALIZED    VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NOT_INITIALIZED)
+#define VS_ERR_TDE_NOT_INITIALIZED          VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NOT_INITIALIZED)
 ///< This operation is not allowed
-#define VS_ERR_TDE_NOT_PERM        VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NOT_PERM)
+#define VS_ERR_TDE_NOT_PERM                 VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NOT_PERM)
 ///< There is no memory
-#define VS_ERR_TDE_NO_MEMORY        VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NO_MEMORY)
-///< Internal nodes(job or task) are not enough */
-#define VS_ERR_TDE_BUF_EMPTY        VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_BUF_EMPTY)
-///< tde module unexist */
-#define VS_ERR_TDE_DEVICE_UNEXIST        VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_DEVICE_UNEXIST)
+#define VS_ERR_TDE_NO_MEMORY                VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_NO_MEMORY)
+///< Internal nodes(job or task) are not enough
+#define VS_ERR_TDE_BUF_EMPTY                VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_BUF_EMPTY)
+///< tde module timeout
+#define VS_ERR_TDE_TIMEOUT                  VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_TIMEOUT)
+///< tde module unexist
+#define VS_ERR_TDE_DEVICE_UNEXIST           VS_ERR_CODE(E_MOD_ID_TDE, E_ERR_DEVICE_UNEXIST)
 
 #ifdef __cplusplus
 }

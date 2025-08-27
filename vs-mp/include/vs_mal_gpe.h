@@ -173,6 +173,17 @@ vs_int32_t vs_mal_gpe_multiluma_task_add(vs_int32_t job_handle, const vs_task_at
 */
 vs_int32_t vs_mal_gpe_pixel_convert_task_add(vs_int32_t job_handle, const vs_task_attr_s *p_task_attr);
 
+/**
+* @brief
+* @details     Add a online task
+* @param [in]  job_handle, the handle of this job
+* @param [in]  p_task_attr, the source and dest information of this task
+* @param [in]  p_online_attr, the online attribute
+* @return      0 call success
+* @return      none 0 call failed, see ERROR_CODE for detail
+* @par
+*/
+vs_int32_t vs_mal_gpe_online_task_add(vs_int32_t job_handle, const vs_task_attr_s *p_task_attr, const vs_gpe_online_attr_s *p_online_attr);
 
 #ifdef __cplusplus
 }

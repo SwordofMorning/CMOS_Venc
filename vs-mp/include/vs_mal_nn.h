@@ -120,6 +120,24 @@ vs_int32_t vs_mal_nn_query(const vs_uint32_t *p_nn_handle,
 */
 vs_int32_t vs_mal_nn_model_destroy(vs_nn_model_s *p_model);
 
+/**
+* @brief       Power on NPU
+* @details     Power on NPU, it can only be called after vs_mal_nn_init.
+* @return      0 call success
+* @return      none 0 call failed, see ERROR_CODE for detail
+* @par
+*/
+vs_int32_t vs_mal_nn_power_on(vs_void_t);
+
+/**
+* @brief       Power off NPU
+* @details     Power off NPU, it can only be called after vs_mal_nn_init.
+* @return      0 call success
+* @return      none 0 call failed, see ERROR_CODE for detail
+* @par
+*/
+vs_int32_t vs_mal_nn_power_off(vs_void_t);
+
 #ifdef __cplusplus
 }
 #endif

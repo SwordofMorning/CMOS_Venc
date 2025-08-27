@@ -22,8 +22,10 @@ extern "C" {
 #define MAX_FISHEYE_REGION_NUM  4
 /** Size of lmf config data  */
 #define GDC_LMF_LENGTH          128
-
-#define MAX_MMZ_NAME_LEN	32
+#define MAX_MMZ_NAME_LEN        32
+#define ISP_BAYER_CHN_NUM       4
+#define ISP_COLOR_MATRIX_SIZE   9
+#define ISP_MAX_VC_NUM          4
 
 /**
 * @brief Defines the border attributes.
@@ -159,6 +161,7 @@ typedef enum vs_pixel_format {
     E_PIXEL_FORMAT_VY1UY0_422,
     E_PIXEL_FORMAT_YUV_400,
     E_PIXEL_FORMAT_UV_420,
+    E_PIXEL_FORMAT_ALPHA_YUV_420SP,
     E_PIXEL_FORMAT_MAX
 } vs_pixel_format_e;
 
@@ -217,9 +220,26 @@ typedef enum vs_frame_flag {
     E_FRAME_FLAG_STRB_FLASH_5 = (1 << 13),
     E_FRAME_FLAG_STRB_FLASH_6 = (1 << 14),
     E_FRAME_FLAG_STRB_FLASH_7 = (1 << 15),
+    E_FRAME_FLAG_EARLY_SEND   = (1 << 16),
 
     E_FRAME_FLAG_MAX         = (1 << 31)
 } vs_frame_flag_e;
+
+/**
+* @brief Define isp supplement info of the frame.
+*/
+typedef struct vs_isp_frame_info {
+    vs_uint32_t total_gain;
+    vs_uint32_t exposure_time[ISP_MAX_VC_NUM];
+    vs_uint32_t sensor_again[ISP_MAX_VC_NUM];
+    vs_uint32_t sensor_dgain[ISP_MAX_VC_NUM];
+    vs_uint32_t isp_dgain[ISP_MAX_VC_NUM];
+    vs_uint32_t black_level[ISP_BAYER_CHN_NUM];
+    vs_uint32_t awb_gain[ISP_BAYER_CHN_NUM];
+    vs_uint32_t awb_temperature;
+    vs_uint32_t color_matrix_coef[ISP_COLOR_MATRIX_SIZE];
+    vs_rect_s  crop_info;
+} vs_isp_frame_info_s;
 
 /**
 * @brief Define supplement info of the frame.
@@ -559,6 +579,20 @@ typedef struct vs_ldc_attr {
 } vs_ldc_attr_s;
 
 /**
+* @brief Defines the dis attributes.
+* @details Defines the dis attributes.
+*/
+typedef struct vs_dis_attr {
+    vs_bool_t   dis_enable;              ///< whether dis enable or not
+    vs_bool_t   warp_bypass;             ///< dis correction bypass or not
+    vs_uint32_t smooth_strength;         ///< smooth strength of dis correction
+    vs_bool_t   crop_enable;             ///< dest frame crop enable or not
+    vs_uint32_t crop_ratio;              ///< the ratio of dest frame crop
+    vs_uint32_t horizontal_limit;        ///< horizontal offset limit of dest frame
+    vs_uint32_t vertical_limit;          ///< vertical offset limit of dest frame
+} vs_dis_attr_s;
+
+/**
 * @brief Defines the lmf cfg attributes.
 * @details Defines the lmf cfg attributes.
 */
@@ -593,10 +627,8 @@ typedef enum vs_lowlatency_linebuf_mode {
 typedef struct vs_lowlatency_attr {
     vs_bool_t        enable;
     vs_lowlatency_mode_e mode;
-    union {
-        vs_int32_t line_cnt;
-        vs_lowlatency_linebuf_mode_e linebuf_mode;
-    };
+    vs_int32_t line_cnt;
+    vs_lowlatency_linebuf_mode_e linebuf_mode;
 } vs_lowlatency_attr_s;
 
 #ifdef __cplusplus
@@ -604,4 +636,3 @@ typedef struct vs_lowlatency_attr {
 #endif
 
 #endif /*!<  __VS_COMM_VIDEO_H__ */
-

@@ -61,9 +61,12 @@ typedef enum vs_mod_id {
     E_MOD_ID_TDE,               ///<  Two dimension engine module ID
     E_MOD_ID_CIPHER,            ///<  cipher module ID
     E_MOD_ID_INIT,              ///<  init module ID
-    E_MOD_ID_ISPAE,		///<  ispae module ID
-    E_MOD_ID_ISPAWB,		///<  ispawb module ID
-    E_MOD_ID_ISPAF,		///<  ispaf module ID
+    E_MOD_ID_ISPAE,             ///<  ispae module ID
+    E_MOD_ID_ISPAWB,            ///<  ispawb module ID
+    E_MOD_ID_ISPAF,             ///<  ispaf module ID
+    E_MOD_ID_INFRA,             ///<  infra module ID
+    E_MOD_ID_IVS,               ///<  ivs module ID
+    E_MOD_ID_RVS,               ///<  rvs module ID
     E_MOD_ID_MAX
 } vs_mod_id_e;
 

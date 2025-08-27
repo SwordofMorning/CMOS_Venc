@@ -208,7 +208,7 @@ vs_int32_t vs_mal_vb_modpool_exit(vs_vb_uid_e uid);
 * @ingroup      vs_mal_vb_supplement_cfg_set
 * @brief        set suppliment configuration
 * @details
-* @param [in]   p_cfg		supplement configuration
+* @param [in]   supplement_cfg	supplement configuration
 * @retval       VS_SUCCESS      no error
 * @retval       others          error happens. see ERROR_CODE for detail.
 * @warning
@@ -218,13 +218,13 @@ vs_int32_t vs_mal_vb_modpool_exit(vs_vb_uid_e uid);
 *
 */
 vs_int32_t vs_mal_vb_supplement_cfg_set(
-	const vs_vb_supplement_cfg_s *p_cfg);
+	vs_uint32_t supplement_cfg);
 
 /**
 * @ingroup      vs_mal_vb_supplement_cfg_get
 * @brief        get suppliment configuration
 * @details
-* @param [out]  p_cfg		supplement configuration
+* @param [out]  p_supplement_cfg	supplement configuration
 * @retval       VS_SUCCESS      no error
 * @retval       others          error happens. see ERROR_CODE for detail.
 * @warning
@@ -234,7 +234,7 @@ vs_int32_t vs_mal_vb_supplement_cfg_set(
 *
 */
 vs_int32_t vs_mal_vb_supplement_cfg_get(
-		vs_vb_supplement_cfg_s *p_cfg);
+		vs_uint32_t *p_supplement_cfg);
 
 /**
 * @ingroup      vs_mal_vb_supplementaddr_get
@@ -281,6 +281,20 @@ VB_BLK vs_mal_vb_physaddr2handle(vs_uint64_t phys_addr);
 *
 */
 vs_uint64_t vs_mal_vb_handle2physaddr(VB_BLK block);
+
+/**
+* @ingroup      vs_mal_vb_physaddr2fd
+* @brief        get vb fd by phys addr
+* @details
+* @param [in]   phys_addr	vb block phys address
+* @retval       fd		dma_buf fd of vb block
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_vb_physaddr2fd(vs_uint64_t phys_addr);
 
 /**
 * @ingroup      vs_mal_vb_handle2poolid

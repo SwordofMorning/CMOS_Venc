@@ -39,6 +39,7 @@ extern "C" {
 #define AQE_MASK_AEC       (0x2)    ///< AEC Mask Bit
 #define AQE_MASK_AGC       (0x4)    ///< AGC Mask Bit
 #define AQE_MASK_ANR       (0x8)    ///< ANR Mask Bit
+#define AQE_MASK_BMF       (0x10)   ///< ANR Mask Bit
 
 
 /*****************************************************************************
@@ -281,7 +282,8 @@ typedef struct vs_aqe_anr_cfg {
 	vs_int32_t  dc_enable;       ///< distortion control enable
 	vs_float_t  noise_intensity; ///< noise reduction level control
 	vs_float_t  min_gain;        ///< distortion control factor
-
+	vs_int32_t  vad_method;      ///< VAD method selection
+	vs_float_t  nrpost_enable;  ///< postNR enable
 } vs_aqe_anr_cfg_s;
 
 /**
@@ -292,7 +294,7 @@ typedef struct vs_aqe_agc_cfg {
 	vs_bool_t   is_user_mode;   ///< algorithm cfg set enable
 	vs_float_t  max_gain;       ///< max volume control
 	vs_float_t  min_gain;       ///< min volume control
-	vs_int32_t  sensitivity;    ///< sensitivity control - No change recommended
+	vs_int32_t  eqloud_enable; ///< equal loudness curve enanble
 	vs_int32_t  decay_time;     ///< decay time for gain control [4, 1000]
 	vs_int32_t  attack_time;    ///< attack time for gain control [4, 1000]
 	vs_int32_t  release_time;   ///< release time for gain control [4, 1000]
@@ -340,6 +342,7 @@ typedef struct vs_ain_record_aqe_cfg {
 
 	vs_audio_sample_rate_e  work_sample_rate;  ///< work sample rate
 	vs_int32_t              chn_num;           ///< the number of channels to process
+	vs_int32_t              frame_samples;     ///< frame length, unit: sample
 	vs_aqe_work_env_e       work_env;          ///< the work environment
 
 	vs_aqe_hpf_cfg_s        hpf_cfg;           ///< the parameters of HPF
@@ -358,6 +361,7 @@ typedef struct vs_ain_talk_aqe_cfg {
 
 	vs_audio_sample_rate_e  work_sample_rate;   ///< work sample rate
 	vs_int32_t              chn_num;            ///< the number of channels to process
+	vs_int32_t              frame_samples;      ///< frame length, unit: sample
 	vs_aqe_work_env_e       work_env;           ///< the work environment
 
 	vs_aqe_hpf_cfg_s        hpf_cfg;            ///< the parameters of HPF
@@ -376,6 +380,7 @@ typedef struct vs_aout_aqe_cfg {
 
 	vs_audio_sample_rate_e  work_sample_rate;   ///< work sample rate
 	vs_int32_t              chn_num;            ///< the number of channels to process
+	vs_int32_t              frame_samples;      ///< frame length, unit: sample
 	vs_aqe_work_env_e       work_env;           ///< the work environment
 
 	vs_aqe_hpf_cfg_s        hpf_cfg;            ///< the parameters of HPF
@@ -563,7 +568,8 @@ typedef struct vs_aenc_encoder {
 */
 typedef enum vs_adec_stream_mode {
 	E_ADEC_STREAM_MODE_FRAME = 0,   ///< the stream has been packed to a complete frame encode result
-	E_ADEC_STREAM_MODE_STREAM,      ///< raw stream which has not been packed
+	E_ADEC_STREAM_MODE_STREAM,      ///< raw stream which has not been packed with frame header
+	E_ADEC_STREAM_MODE_RAW,         ///< raw stream which has not been packed without frame header
 	E_ADEC_STREAM_MODE_MAX
 } vs_adec_stream_mode_e;
 

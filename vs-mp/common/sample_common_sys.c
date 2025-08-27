@@ -11,7 +11,10 @@
 #include "vs_mal_mmz.h"
 #include "vs_mal_sys.h"
 #include <unistd.h>
-#include "string.h"
+#include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
 
 vs_int32_t sample_common_sys_init(vs_vb_cfg_s *vb_cfg)
 {
@@ -173,6 +176,46 @@ vs_void_t sample_common_pause(vs_void_t)
         usleep(1000);
     };
     printf("\n=====exit=====\n");
+}
+
+vs_int32_t sample_common_argv_val_get(char *argv[], vs_uint32_t index, vs_long_t *val)
+{
+    char *end_ptr = VS_NULL;
+    vs_long_t result;
+
+    errno = 0;
+    result = strtol(argv[index], &end_ptr, 10);  /* 10:base */
+    if ((end_ptr == argv[index]) || (*end_ptr != '\0')) {
+        return VS_FAILED;
+    } else if (((result == LONG_MIN) || (result == LONG_MAX)) &&
+        (errno == ERANGE)) {
+        return VS_FAILED;
+    }
+
+    *val = result;
+
+    return VS_SUCCESS;
+}
+
+vs_int32_t sample_common_get_valid_argv_val(char *argv[], vs_uint32_t index, vs_int32_t *val, vs_int32_t min, vs_int32_t max)
+{
+    vs_long_t arg_val;
+    vs_int32_t ret;
+
+    ret = sample_common_argv_val_get(argv, index, &arg_val);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("Failure: argv%u is invalid!\n", index);
+        return ret;
+    }
+
+    if (arg_val < min || arg_val > max) {
+        vs_sample_trace("Failure: argv%u value is wrong. should be [%d, %d].\n", index, min, max);
+        return VS_FAILED;
+    }
+
+    *val = (vs_int32_t)arg_val;
+
+    return VS_SUCCESS;
 }
 
 vs_int32_t sample_common_vii_bind_vpp(vs_int32_t vii_pipeid, vs_int32_t vii_chnid, vs_int32_t vpp_grpid)
@@ -439,6 +482,51 @@ vs_int32_t sample_common_vpp_unbind_avs(vs_int32_t vpp_grpid, vs_int32_t vpp_chn
     return VS_SUCCESS;
 }
 
+vs_int32_t sample_common_avs_bind_vpp(vs_int32_t avs_grpid, vs_int32_t avs_chnid,vs_int32_t vpp_grpid)
+{
+    vs_int32_t ret;
+    vs_chn_s producer, consumer;
+
+    producer.modid = E_MOD_ID_AVS;
+    producer.devid = avs_grpid;
+    producer.chnid = avs_chnid;
+
+
+    consumer.modid = E_MOD_ID_AVS;
+    consumer.devid = vpp_grpid;
+    consumer.chnid = 0;
+    ret = vs_mal_sys_bind(&producer, &consumer);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("sys bind avs-vpp failed! avs grpid %d, chnid %d, vpp_grpid  %d, ret: 0x%x.\n",
+            avs_grpid, avs_chnid, vpp_grpid, ret);
+        return VS_FAILED;
+    }
+
+    return VS_SUCCESS;
+}
+
+vs_int32_t sample_common_avs_unbind_vpp(vs_int32_t avs_grpid, vs_int32_t avs_chnid,vs_int32_t vpp_grpid)
+{
+    vs_int32_t ret;
+    vs_chn_s producer, consumer;
+
+    producer.modid = E_MOD_ID_AVS;
+    producer.devid = avs_grpid;
+    producer.chnid = avs_chnid;
+
+
+    consumer.modid = E_MOD_ID_VPP;
+    consumer.devid = vpp_grpid;
+    consumer.chnid = 0;
+    ret = vs_mal_sys_unbind(&producer, &consumer);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("sys unbind avs-vpp failed! avs grpid %d, chnid %d, vpp_grpid  %d, ret: 0x%x.\n",
+            avs_grpid, avs_chnid, vpp_grpid, ret);
+        return VS_FAILED;
+    }
+
+    return VS_SUCCESS;
+}
 
 
 vs_int32_t sample_common_vpp_unbind_vo(vs_int32_t vpp_grpid, vs_int32_t vpp_chnid, vs_int32_t vo_devid, vs_int32_t vo_chnid)

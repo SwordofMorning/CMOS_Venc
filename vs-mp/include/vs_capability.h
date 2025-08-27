@@ -306,9 +306,21 @@ extern "C" {
 #define AVS_MIN_OUT_HEIGHT               256
 
 /**
+ * @brief Define the ivs capabilities
+*/
+
+#define IVS_MD_MAX_CHN_NUM              64
+#define IVS_OD_MAX_CHN_NUM              64
+
+/**
 * @brief Define the UUID num
 */
 #define SYS_UUID_NUM	5
+
+/**
+* @brief Define the max sys mod num
+*/
+#define SYS_MAX_MOD_NUM    64
 
 
 #ifdef __cplusplus
