@@ -82,12 +82,6 @@ vs_int32_t sample_common_vpp_start(vs_int32_t vpp_grpid, vs_bool_t* p_chn_enable
 		return VS_FAILED;
 	}
 
-	ret = vs_mal_vpp_grp_start(vpp_grpid);
-	if (ret != VS_SUCCESS) {
-		vs_sample_trace("vs_mal_vpp_grp_start(grp %d) failed with 0x%x\n", vpp_grpid, ret);
-		return VS_FAILED;
-	}
-
 	for (i = 0; i < VPP_MAX_PHYCHN_NUM; i++) {
 		if (p_chn_enable[i] == VS_TRUE) {
 			ret = vs_mal_vpp_chn_attr_set(vpp_grpid, i, &p_vpp_chn_attr[i]);
@@ -110,6 +104,12 @@ vs_int32_t sample_common_vpp_start(vs_int32_t vpp_grpid, vs_bool_t* p_chn_enable
 				return VS_FAILED;
 			}
 		}
+	}
+
+	ret = vs_mal_vpp_grp_start(vpp_grpid);
+	if (ret != VS_SUCCESS) {
+		vs_sample_trace("vs_mal_vpp_grp_start(grp %d) failed with 0x%x\n", vpp_grpid, ret);
+		return VS_FAILED;
 	}
 
 	return VS_SUCCESS;

@@ -55,14 +55,14 @@ vs_int32_t vs_mal_ive_dma(vs_uint32_t *p_handle, vs_ive_data_s  *p_src, vs_ive_d
 
 /**
 * @ingroup      vs_mal_ive
-* @brief        5x5 matrix filter
-* @details      Input image type              U8C1,YUV420SP,yuv422SP
+* @brief        5x5 or 3x3 filter
+* @details      Input image type              U8C1, U16C1, S16C1, YUV420SP, YUV422SP
 *               Input image resolution range  64x64-1920x1080
-*               Output image type             U8C1,YUV420SP,yuv422SP
-*               Output image resolution range 64x64-1920x1080
+*               Output image type             same as Input image type，if abs mode, the unsigned data type of the input image
+*               Output image resolution range same as Input image type
 * @param [out]  p_handle    the returned task ID used for task status query
-* @param [in]   p_src       the input source data address,16bytes alignment
-* @param [out]  p_dst       the output destined data address,16bytes alignment
+* @param [in]   p_src       input image
+* @param [out]  p_dst       output image
 * @param [in]   p_cfg       the config parameters of FILTER
 * @param [in]   block       the flag indicating whether to block the task
 * @retval       VS_SUCCESS      no error
@@ -76,6 +76,28 @@ vs_int32_t vs_mal_ive_dma(vs_uint32_t *p_handle, vs_ive_data_s  *p_src, vs_ive_d
 vs_int32_t vs_mal_ive_filter(vs_uint32_t *p_handle, vs_ive_image_s  *p_src, vs_ive_image_s  *p_dst,
                                 vs_ive_filter_cfg_s *p_cfg, vs_bool_t block);
 
+/**
+* @ingroup      vs_mal_ive
+* @brief        5x5 or 3x3 filter
+* @details      Input image type              U16C1
+*               Input image resolution range  8x8-3840x2160
+*               Output image type             same as Input image type
+*               Output image resolution range same as Input image size
+* @param [out]  p_handle    the returned task ID used for task status query
+* @param [in]   p_src       input image
+* @param [out]  p_dst       output image
+* @param [in]   p_cfg       the config parameters of FILTER3
+* @param [in]   block       the flag indicating whether to block the task
+* @retval       VS_SUCCESS      no error
+* @retval       others          error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_ive_filter3(vs_uint32_t *p_handle, vs_ive_image_s  *p_src, vs_ive_image_s  *p_dst,
+                                vs_ive_filter3_cfg_s *p_cfg, vs_bool_t block);
 
 /**
 * @ingroup      vs_mal_ive
@@ -153,13 +175,13 @@ vs_int32_t vs_mal_ive_csc(vs_uint32_t *p_handle, vs_ive_image_s  *p_src, vs_ive_
 /**
 * @ingroup      vs_mal_ive
 * @brief        Image threshold operation
-* @details      Input image type              U8C1
+* @details      Input image type              U8C1, S8C1, U16C1
 *               Input image resolution range  64x64-4096x4096
-*               Output image type             U8C1
+*               Output image type             U8C1, S8C1, U16C1
 *               Output image resolution range 64x64-4096x4096
 * @param [out]  p_handle    the returned task ID used for task status query
-* @param [in]   p_src       the input source data address,16bytes alignment
-* @param [out]  p_dst       the output destined data address,16bytes alignment
+* @param [in]   p_src       the input source data address
+* @param [out]  p_dst       the output destined data address
 * @param [in]   p_cfg       the config parameters of THRESH
 * @param [in]   block       the flag indicating whether to block the task
 * @retval       VS_SUCCESS      no error
@@ -177,14 +199,16 @@ vs_int32_t vs_mal_ive_threshold(vs_uint32_t *p_handle, vs_ive_image_s  *p_src, v
 /**
 * @ingroup      vs_mal_ive
 * @brief        Add operation of two images with x weight and y weight
-* @details      Input image type              U8C1
-*               Input image resolution range  64x64-4096x4096
-*               Output image type:             U8C1
-*               Output image resolution range 64x64-4096x4096
+* @details      Input src1 image type              U8C1, S8C1, U16C1, S16C1
+*               Input src1 image resolution range  64x64-4096x4096
+*               Input src2 image type              U8C1, S8C1, U16C1, S16C1
+*               Input src2 image resolution range  1x1(U16C1 + S16 = U16C1) or same as Input src1 image
+*               Output image type:                 U8C1, S8C1, U16C1, S16C1
+*               Output image resolution range      same as Input src1 image
 * @param [out]  p_handle    the returned task ID used for task status query
-* @param [in]   p_src1      the input source1 data address,16bytes alignment
-* @param [in]   p_src2      the input source2 data address,16bytes alignment
-* @param [out]  p_dst       the output destined data address,16bytes alignment
+* @param [in]   p_src1      the input source1 image
+* @param [in]   p_src2      the input source2 image
+* @param [out]  p_dst       the output destination image
 * @param [in]   p_cfg       the config parameters of ADD
 * @param [in]   block       the flag indicating whether to block the task
 * @retval       VS_SUCCESS      no error
@@ -202,15 +226,17 @@ vs_int32_t vs_mal_ive_add(vs_uint32_t *p_handle, vs_ive_image_s  *p_src1, vs_ive
 /**
 * @ingroup      vs_mal_ive
 * @brief        Source1 image minus source2 image for each pixel
-* @details      Input image type              U8C1
-*               Input image resolution range  64x64-4096x4096
-*               Output image type:             U8C1,S8C1
-*               Output image resolution range 64x64-4096x4096
+* @details      Input image1 type              U8C1, U16C1, S16C1, S8C1
+*               Input image1 resolution range  64x64-4096x4096
+*               Input image2 type              same as image1
+*               Input image2 resolution range  same as image1 or 1x1(U16)
+*               Output image type:             U8C1, S8C1, U16C1, S16C1
+*               Output image resolution range same as Input image
 * @param [out]  p_handle    the returned task ID used for task status query
-* @param [in]   p_src1      the input source1 data address,16bytes alignment
-* @param [in]   p_src2      the input source2 data address,16bytes alignment
-* @param [out]  p_dst       the output destined data address,16bytes alignment
-* @param [in]   mode        the operation mode of SUB
+* @param [in]   p_src1      the input source1 image
+* @param [in]   p_src2      the input source2 image
+* @param [out]  p_dst       the output destination image
+* @param [in]   p_cfg       the config of SUB
 * @param [in]   block       the flag indicating whether to block the task
 * @retval       VS_SUCCESS      no error
 * @retval       others          error happens. see ERROR_CODE for detail.
@@ -221,7 +247,52 @@ vs_int32_t vs_mal_ive_add(vs_uint32_t *p_handle, vs_ive_image_s  *p_src1, vs_ive
 *
 */
 vs_int32_t vs_mal_ive_sub(vs_uint32_t *p_handle, vs_ive_image_s  *p_src1, vs_ive_image_s  *p_src2,
-                             vs_ive_image_s  *p_dst, vs_ive_sub_mode_e mode, vs_bool_t block);
+                             vs_ive_image_s  *p_dst, vs_ive_sub_cfg_s *p_cfg, vs_bool_t block);
+
+/**
+* @ingroup      vs_mal_ive
+* @brief        Multiply operation of two images with normalization and threshold
+* @details      Input image type              U16C1, S16C1, U8C1, S8C1
+*               Input image resolution range  8x8-4096x4096 or src2 size 1x1(representing a constant)
+*               Output image type:            U16C1, S16C1, S8C1
+*               Output image resolution range same as Input image
+* @param [out]  p_handle    the returned task ID used for task status query
+* @param [in]   p_src1      the input source1 image
+* @param [in]   p_src2      the input source2 image
+* @param [out]  p_dst       the output destination image
+* @param [in]   p_cfg       the config parameters of MUL
+* @param [in]   block       the flag indicating whether to block the task
+* @retval       VS_SUCCESS      no error
+* @retval       others          error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_ive_mul(vs_uint32_t *p_handle, vs_ive_image_s  *p_src1, vs_ive_image_s  *p_src2,
+                             vs_ive_image_s  *p_dst, vs_ive_mul_cfg_s *p_cfg, vs_bool_t block);
+
+/**
+* @ingroup      vs_mal_ive
+* @brief        convert infrared raw image to bayer one
+* @details      Input image type              U16C1, S16C1
+*               Input image resolution range  4x4-1920x1080
+*               Output image type:            same as Input image
+*               Output image resolution range double the width and the height of Input image
+* @param [out]  p_handle    the returned task ID used for task status query
+* @param [in]   p_src       the input source image
+* @param [out]  p_dst       the output destination image
+* @param [in]   block       the flag indicating whether to block the task
+* @retval       VS_SUCCESS      no error
+* @retval       others          error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_ive_infra_raw2bayer(vs_uint32_t *p_handle, vs_ive_image_s  *p_src, vs_ive_image_s  *p_dst, vs_bool_t block);
 
 /**
 * @ingroup      vs_mal_ive
@@ -248,14 +319,14 @@ vs_int32_t vs_mal_ive_map(vs_uint32_t *p_handle, vs_ive_image_s  *p_src, vs_ive_
 
 /**
 * @ingroup      vs_mal_ive
-* @brief        Scale the image and Supports zooming in and out of multiple images
-* @details      Input image type              U8C1,YUV420SP,yuv422SP
-*               Input image resolution range  32x12-1920x1080
-*               Output image type             U8C1,YUV420SP,yuv422SP
-*               Output image resolution range 32x12-1920x1080
+* @brief        Scale multiple images, and support both scale up and scale down
+* @details      Input image type              U8C1, YUV420SP, YUV422SP, U8C3_PACKAGE, U8C4, U8C3_PLANAR
+*               Input image resolution range  8x4 - 3840x2160
+*               Output image type             same as input image type
+*               Output image resolution range 8x4 - 3840x2160
 * @param [out]  p_handle    the returned task ID used for task status query
-* @param [in]   src         the input source data address,16bytes alignment
-* @param [out]  dst         the output destined data address,16bytes alignment
+* @param [in]   src         the input source data address
+* @param [out]  dst         the output destination data address
 * @param [in]   p_cfg       the config parameters of RESIZE
 * @param [in]   block       the flag indicating whether to block the task
 * @retval       VS_SUCCESS      no error
@@ -273,13 +344,13 @@ vs_int32_t vs_mal_ive_resize(vs_uint32_t *p_handle, vs_ive_image_s  src[], vs_iv
 /**
 * @ingroup      vs_mal_ive
 * @brief        Histogram statistics
-* @details      Input image type              U8C1
+* @details      Input image type              U8C1/S8C1(valid bits: 8), U16C1(valid bits: 9,10,11,12,14)
 *               Input image resolution range  64x64-4096x4096
 *               Output data type              IVE_1D_DATA
-*               Output data size              256x4=1024bytes
+*               Output data size              (1 << valid bits) * sizeof(uint)
 * @param [out]  p_handle    the returned task ID used for task status query
-* @param [in]   p_src       the input source data address,16bytes alignment
-* @param [out]  p_dst       the output destined data address,16bytes alignment
+* @param [in]   p_src       the input source data address
+* @param [out]  p_dst       the output destined data address
 * @param [in]   block       the flag indicating whether to block the task
 * @retval       VS_SUCCESS      no error
 * @retval       others          error happens. see ERROR_CODE for detail.
@@ -527,8 +598,8 @@ vs_int32_t vs_mal_ive_sobel(vs_uint32_t *p_handle, vs_ive_image_s *p_src,
 *               Output image type             U8C1
 *               Output image resolution range 64x64-1920x1080
 * @param [out]  p_handle    the returned task ID used for task status query
-* @param [in]   p_src       input binary image,16bytes alignment
-* @param [out]  p_dst       output dilate image,16bytes alignment
+* @param [in]   p_src       input binary image
+* @param [out]  p_dst       output dilate image
 * @param [in]   p_cfg       the config parameters of DILATE
 * @param [in]   block       the flag indicating whether to block the task
 * @retval       VS_SUCCESS      no error
@@ -551,8 +622,8 @@ vs_int32_t vs_mal_ive_dilate(vs_uint32_t *p_handle, vs_ive_image_s *p_src,
 *               Output image type             U8C1
 *               Output image resolution range 64x64-1920x1080
 * @param [out]  p_handle    the returned task ID used for task status query
-* @param [in]   p_src       input image,16bytes alignment
-* @param [out]  p_dst       output erode image,16bytes alignment
+* @param [in]   p_src       input image
+* @param [out]  p_dst       output erode image
 * @param [in]   p_cfg       the config parameters of ERODE
 * @param [in]   block       the flag indicating whether to block the task
 * @retval       VS_SUCCESS      no error
@@ -1047,7 +1118,7 @@ vs_int32_t vs_mal_ive_threshold_u16(vs_uint32_t *p_handle, vs_ive_image_s  *p_sr
 
 /**
 * @ingroup      vs_mal_ive
-* @brief        extract high frequency component of the s16 src image and cast to s8 dst image
+* @brief        extract high frequency component of the u8/u16/s16 src image and cast to s8/s16 dst image
 * @details
 * @param [out]  p_handle            the returned task ID used for task status query
 * @param [in]   p_src               input image, 16x16 - 4096x4096
@@ -1084,6 +1155,69 @@ vs_int32_t vs_mal_ive_high_freq_extract(vs_uint32_t* p_handle, vs_ive_image_s* p
 */
 vs_int32_t vs_mal_ive_bilateral_filter(vs_uint32_t* p_handle, vs_ive_image_s* p_src, vs_ive_image_s* p_dst,
                                         vs_ive_bilateral_filter_cfg_s* p_cfg, vs_bool_t block);
+
+/**
+* @ingroup      vs_mal_ive
+* @brief        crop multi roi from src image
+* @details
+* @param [out]  p_handle            the returned task ID used for task status query
+* @param [in]   p_src               input image, 4x4 - 3840x2160, U8C1/YUV420SP/YUV422SP/U8C3_PACKAGE/U8C3_PLANAR
+* @param [out]  dst                 output image, resolution is the same as roi, image type is the same as src image
+* @param [in]   roi                 input roi region
+* @param [in]   num                 number of roi
+* @param [in]   block               the flag indicating whether to block the task
+* @retval       VS_SUCCESS          no error
+* @retval       others              error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_ive_crop(vs_uint32_t *p_handle, vs_ive_image_s *p_src, vs_ive_image_s dst[], vs_rect_s roi[], vs_uint32_t num, vs_bool_t block);
+
+/**
+* @ingroup      vs_mal_ive
+* @brief        resize2
+* @details
+* @param [out]  p_handle            the returned task ID used for task status query
+* @param [in]   p_src               input image, 4x4 - 4096x4096, U8C1/YUV420SP/YUV422SP
+* @param [out]  p_dst               output image, 4x4 - 4096x4096, image type is the same as src image
+* @param [in]   p_roi               the cropped roi to upscale, the whole image is upscale when p_roi is NULL
+* @param [in]   block               the flag indicating whether to block the task
+* @retval       VS_SUCCESS          no error
+* @retval       others              error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_ive_resize2(vs_uint32_t* p_handle, vs_ive_image_s* p_src, vs_ive_image_s* p_dst, vs_rect_s *p_roi, vs_bool_t block);
+
+/**
+* @ingroup      vs_mal_ive
+* @brief        rotation (90 / 270) operation
+* @details      Input src image type              U8C1, YUV420SP, YUV422SP
+*               Input src image resolution range  64x64 - 4096x4096
+*               Output image type:                same as Input src image
+*               Output image resolution range     transposition of the resolution of Input src image
+* @param [out]  p_handle    the returned task ID used for task status query
+* @param [in]   p_src       the input source image
+* @param [out]  p_dst       the output destination image
+* @param [in]   angle       the angle of rotate
+* @param [in]   block       the flag indicating whether to block the task
+* @retval       VS_SUCCESS      no error
+* @retval       others          error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_ive_rotate(vs_uint32_t *p_handle, vs_ive_image_s *p_src, vs_ive_image_s *p_dst,
+                                vs_fixed_rotation_e angle, vs_bool_t block);
+
 
 /**
 * @ingroup      vs_mal_ive

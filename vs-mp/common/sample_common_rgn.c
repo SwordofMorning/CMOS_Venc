@@ -69,6 +69,46 @@ vs_uint32_t sample_rgn_overlayex_create(vs_uint32_t handle_num)
     return ret;
 }
 
+static vs_uint32_t sample_common_rgn_scale_overlayex_create(vs_uint32_t handle_num, vs_bool_t zoom_out,
+    vs_uint32_t scale_factor)
+{
+    vs_uint32_t     ret = VS_SUCCESS;
+    vs_rgn_attr_s   rgn_attr;
+    vs_uint32_t     i, handle;
+
+    rgn_attr.type = E_RGN_TYPE_OVERLAYEX;
+    rgn_attr.attr.overlayex.size.width = 320;
+    rgn_attr.attr.overlayex.size.height = 256;
+    rgn_attr.attr.overlayex.format = E_PIXEL_FORMAT_ARGB8888;
+    rgn_attr.attr.overlayex.bgcolor = 0x00ff00;
+    rgn_attr.attr.overlayex.surface_num = 2;
+
+    for(i = OverlayExMinHandle; i < OverlayExMinHandle + handle_num; i++) {
+        ret = vs_mal_rgn_create(i, &rgn_attr);
+        if (ret) {
+            vs_sample_trace("rgn create failed!\n");
+            return VS_FAILED;
+        }
+    }
+
+    if (zoom_out == VS_TRUE) {
+        rgn_attr.attr.overlayex.size.width = rgn_attr.attr.overlayex.size.width / scale_factor;
+        rgn_attr.attr.overlayex.size.height = rgn_attr.attr.overlayex.size.height / scale_factor;
+    } else {
+        rgn_attr.attr.overlayex.size.width = rgn_attr.attr.overlayex.size.width * scale_factor;
+        rgn_attr.attr.overlayex.size.height = rgn_attr.attr.overlayex.size.height * scale_factor;
+    }
+
+    for (handle = i, i = 0; i < handle_num; i++, handle++) {
+        ret = vs_mal_rgn_create(handle, &rgn_attr);
+        if (ret) {
+            vs_sample_trace("scale rgn create failed!\n");
+            return VS_FAILED;
+        }
+    }
+    return VS_SUCCESS;
+}
+
 vs_uint32_t sample_rgn_cover_create(vs_uint32_t handle_num)
 {
     vs_uint32_t     ret = VS_SUCCESS;
@@ -189,6 +229,49 @@ vs_uint32_t sample_common_rgn_get_update_surface(vs_uint32_t handle)
     return ret;
 }
 
+vs_uint32_t sample_common_rgn_get_update_scale_surface(vs_uint32_t handle,
+    vs_uint32_t scale_handle, vs_bool_t zoom_out, vs_uint32_t scale_factor)
+{
+    vs_uint32_t ret = VS_SUCCESS;
+    vs_rgn_surface_info_s surface_info = {0};
+    vs_rgn_surface_info_s scale_surface_info = {0};
+
+    ret = vs_mal_rgn_surface_get(handle, &surface_info);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("vs_mal_rgn_surface_get failed! ret:%d.\n", ret);
+        return ret;
+    }
+
+    load_bmp(RGN_CHN_BMP, surface_info.p_virt_addr, 0);
+
+    ret = vs_mal_rgn_surface_get(scale_handle, &scale_surface_info);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("vs_mal_rgn_surface_get failed for scale rgn! ret:%d.\n", ret);
+        return ret;
+    }
+
+    ret = sample_common_tde_quick_scale(surface_info.phys_addr, &surface_info.size,
+            scale_surface_info.phys_addr, &scale_surface_info.size, surface_info.format);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("sample_common_tde_quick_scale failed, ret:%d.\n", ret);
+        return ret;
+    }
+
+    ret = vs_mal_rgn_surface_update(handle);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("vs_mal_rgn_surface_update failed, ret:%d.\n", ret);
+        return ret;
+    }
+
+    ret = vs_mal_rgn_surface_update(scale_handle);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("vs_mal_rgn_surface_update failed for scale rgn, ret:%d.\n", ret);
+        return ret;
+    }
+
+    return ret;
+}
+
 vs_uint32_t sample_common_region_create(vs_uint32_t handle_num, vs_rgn_type_e rgn_type)
 {
     vs_uint32_t ret = VS_SUCCESS;
@@ -220,13 +303,46 @@ vs_uint32_t sample_common_region_create(vs_uint32_t handle_num, vs_rgn_type_e rg
         case E_RGN_TYPE_MOSAIC:
              ret = sample_rgn_mosaic_create(handle_num);
              break;
-            default:
-                break;
+        default:
+            break;
     }
 
     if (ret != VS_SUCCESS)
     {
         vs_sample_trace("sample_common_region_create failed! handle_num:%d, rgn_type:%d!\n", handle_num, rgn_type);
+        return VS_FAILED;
+    }
+
+    return ret;
+}
+
+vs_uint32_t sample_common_region_scale_create(vs_uint32_t handle_num, vs_rgn_type_e rgn_type,
+    vs_bool_t zoom_out, vs_uint32_t scale_factor)
+{
+    vs_uint32_t ret = VS_FAILED;
+    if(handle_num <= 0 || handle_num > 8)
+    {
+        vs_sample_trace("handle_num is illegal %d!\n", handle_num);
+        return VS_FAILED;
+    }
+    if(rgn_type < 0 || rgn_type > 4)
+    {
+        vs_sample_trace("rgn_type is illegal %d!\n", rgn_type);
+        return VS_FAILED;
+    }
+
+    switch(rgn_type)
+    {
+        case E_RGN_TYPE_OVERLAYEX:
+             ret = sample_common_rgn_scale_overlayex_create(handle_num, zoom_out, scale_factor);
+             break;
+        default:
+            break;
+    }
+
+    if (ret != VS_SUCCESS)
+    {
+        vs_sample_trace("sample_common_region_scale_create failed! handle_num:%d, rgn_type:%d!\n", handle_num, rgn_type);
         return VS_FAILED;
     }
 
@@ -419,8 +535,8 @@ vs_uint32_t sample_common_rgn_chn_bind(vs_uint32_t handle_num, vs_rgn_type_e rgn
         if(rgn_type == E_RGN_TYPE_OVERLAYEX)
         {
             disp_info.disp_attr.overlayex_disp.zorder = i - OverlayExMinHandle;
-            disp_info.disp_attr.overlayex_disp.point.x = 20 + 150*(i - OverlayExMinHandle);
-            disp_info.disp_attr.overlayex_disp.point.y = 20 + 150*(i - OverlayExMinHandle);
+            disp_info.disp_attr.overlayex_disp.point.x = 20 + 320*(i - OverlayExMinHandle);
+            disp_info.disp_attr.overlayex_disp.point.y = 20 + 256*(i - OverlayExMinHandle);
 
         }
         if(rgn_type == E_RGN_TYPE_MOSAIC)

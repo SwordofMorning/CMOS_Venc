@@ -48,6 +48,13 @@ extern "C"{
 #define VS_ERR_IVE_DSP_TIMEOUT          VS_ERR_CODE(E_MOD_ID_IVE,E_ERR_IVE_DSP_TIMEOUT)         ///< dsp ops timeout
 #define VS_ERR_IVE_DSP_NOT_INITIALIZED  VS_ERR_CODE(E_MOD_ID_IVE,E_ERR_IVE_DSP_NOT_INITIALIZED) ///< dsp not initialized
 
+#define VS_ERR_IVE_INVALID_CHNID        VS_ERR_CODE(E_MOD_ID_IVE, E_ERR_INVALID_CHNID)          ///< invalid chnid
+#define VS_ERR_IVE_BAD_STATE            VS_ERR_CODE(E_MOD_ID_IVE, E_ERR_BAD_STATE)              ///< bad state mathine
+#define VS_ERR_IVE_NOT_PERM             VS_ERR_CODE(E_MOD_ID_IVE, E_ERR_NOT_PERM)               ///< Operation not permitted
+#define VS_ERR_IVE_NO_MEMORY            VS_ERR_CODE(E_MOD_ID_IVE, E_ERR_NO_MEMORY)              ///< Out of memory
+
+
+
 /*****************************************************************************
  *                    Type Definitions
  *****************************************************************************/
@@ -121,6 +128,7 @@ typedef enum vs_ive_image_type
     E_IVE_IMAGE_TYPE_FP32C1,        ///< single channel image data,float 32-bit per pixel
     E_IVE_IMAGE_TYPE_U8C3_PLANAR,   ///< 3-channel planar image data,24bit per pixel
     E_IVE_IMAGE_TYPE_S8C2_PACKAGE,  ///< 2-channel package image data,16bit per pixel
+    E_IVE_IMAGE_TYPE_U8C4,          ///< 4-channel package image data, 32bit per pixel
     E_IVE_IMAGE_TYPE_MAX
 }vs_ive_image_type_e;
 
@@ -182,9 +190,21 @@ typedef struct vs_ive_filter_cfg
     vs_int8_t  mask[25];       ///< 5x5 filter template
     vs_uint8_t normalization;  ///< normalized parameters
     vs_bool_t  abs_enable;     ///< ABS enable
-    vs_uint8_t min_value;      ///< min value threshold
-    vs_uint8_t max_value;      ///< max value threshold
+    vs_int32_t min_value;      ///< min value threshold
+    vs_int32_t max_value;      ///< max value threshold
 }vs_ive_filter_cfg_s;
+
+/**
+* @brief The config parameters of FILTER3
+*/
+typedef struct vs_ive_filter3_cfg
+{
+    vs_int16_t  mask[25];       ///< 5x5 filter template
+    vs_uint8_t  normalization;  ///< normalized parameters
+    vs_bool_t   abs_enable;     ///< ABS enable
+    vs_int32_t  min_value;      ///< min value threshold
+    vs_int32_t  max_value;      ///< max value threshold
+} vs_ive_filter3_cfg_s;
 
 /**
 * @brief The config parameters of COLOR
@@ -230,6 +250,7 @@ typedef enum vs_ive_csc_mode
     E_IVE_CSC_MODE_VIDEO_BT709_YUV2BGR_PLANAR,      ///< YUV2BGR_PLANAR video conversion of bt709
     E_IVE_CSC_MODE_PICTURE_BT601_YUV2BGR_PLANAR,    ///< YUV2BGR_PLANAR picture conversion of bt601
     E_IVE_CSC_MODE_PICTURE_BT709_YUV2BGR_PLANAR,    ///< YUV2BGR_PLANAR picture conversion of bt709
+    E_IVE_CSC_MODE_RGB2BGR,
     E_IVE_CSC_MODE_MAX
 }vs_ive_csc_mode_e;
 
@@ -255,20 +276,31 @@ typedef enum vs_ive_thr_mode
 typedef struct vs_ive_thr_cfg
 {
     vs_ive_thr_mode_e mode; ///< threshold mode
-    vs_uint8_t low_thr;     ///< low threshold
-    vs_uint8_t high_thr;    ///< high threshold
-    vs_uint8_t min_val;     ///< minimum value
-    vs_uint8_t med_val;     ///< median value
-    vs_uint8_t max_val;     ///< maximum value
+    vs_int32_t low_thr;     ///< low threshold
+    vs_int32_t high_thr;    ///< high threshold
+    vs_int32_t min_val;     ///< minimum value
+    vs_int32_t med_val;     ///< median value
+    vs_int32_t max_val;     ///< maximum value
 }vs_ive_thr_cfg_s;
+
+/**
+* @brief The parameters of clip
+*/
+typedef struct vs_ive_clip
+{
+    vs_int32_t  min_val;  ///< min value threshold
+    vs_int32_t  max_val;  ///< max value threshold
+}vs_ive_clip_s;
 
 /**
 * @brief The config parameters of ADD
 */
 typedef struct vs_ive_add_cfg
 {
-    vs_uint16_t x_weight;  ///< x-axis weight
-    vs_uint16_t y_weight;  ///< y-axis weight
+    vs_uint16_t x_weight;   ///< x-axis weight
+    vs_uint16_t y_weight;   ///< y-axis weight
+    vs_int32_t  shift_bits; ///< bit shift right
+    vs_ive_clip_s clip;     ///< clip threshold
 }vs_ive_add_cfg_s;
 
 /**
@@ -276,10 +308,29 @@ typedef struct vs_ive_add_cfg
 */
 typedef enum vs_ive_sub_mode
 {
-    E_IVE_SUB_MODE_ABS = 0x1,   ///< absolute subtraction
+    E_IVE_SUB_MODE_SATURA = 0x0,///< saturate subtraction
+    E_IVE_SUB_MODE_ABS,         ///< absolute subtraction
     E_IVE_SUB_MODE_SHIFT = 0x3, ///< shift subtraction
     E_IVE_SUB_MODE_MAX
 }vs_ive_sub_mode_e;
+
+/**
+* @brief The config parameters of SUB
+*/
+typedef struct vs_ive_sub_cfg
+{
+    vs_ive_sub_mode_e mode; ///< sub mode
+    vs_ive_clip_s clip;     ///< clip threshold
+}vs_ive_sub_cfg_s;
+
+/**
+* @brief The config parameters of MUL
+*/
+typedef struct vs_ive_mul_cfg {
+    vs_uint8_t normalization;  ///< normalized parameters
+    vs_int32_t min_value;      ///< min value threshold
+    vs_int32_t max_value;      ///< max value threshold
+}vs_ive_mul_cfg_s;
 
 /**
 * @brief The operation mode of MAP
@@ -408,6 +459,7 @@ typedef struct vs_ive_sobel_cfg
 {
     vs_ive_sobel_out_mode_e mode;      ///< sobel output mode
     vs_int8_t               mask[25];  ///< 5x5 template parameters
+    vs_ive_clip_s           clip;
 }vs_ive_sobel_cfg_s;
 
 /**
@@ -925,6 +977,7 @@ typedef struct vs_ive_theshold_s16_cfg{
 	vs_ive_8bit_u med_val;                   ///< The middle  value of thresholding
 	vs_ive_8bit_u max_val;                   ///< The maximum value of thresholding
 }vs_ive_threshold_s16_cfg_s;
+
 /**
 * @brief the mode of threshold_s16
 */
@@ -933,6 +986,7 @@ typedef enum vs_ive_threshold_u16_mode {
     E_IVE_THR_U16_MODE_U16_TO_U8_MIN_ORI_MAX,           ///< U16_TO_U8,original value mode
     E_IVE_THR_U16_MODE_MAX,
 }vs_ive_threshold_u16_mode_e;
+
 /**
 * @brief the cfg of threshold_s16
 */
@@ -950,6 +1004,7 @@ typedef struct vs_ive_threshold_u16_cfg {
  */
 typedef struct vs_ive_high_freq_extract_cfg {
     vs_int16_t coef[25];                    ///< coefficient of the 5x5 filter
+    vs_ive_clip_s clip;                     ///< clip threshold
 } vs_ive_high_freq_extract_cfg_s;
 
 /**
@@ -959,6 +1014,8 @@ typedef struct vs_ive_bilateral_filter_cfg {
     vs_float_t sigma_space;                 ///< sigma space, only support 1.0f
     vs_float_t sigma_color;                 ///< sigma color, [1.f, 18.f]
 } vs_ive_bilateral_filter_cfg_s;
+
+
 
 #ifdef __cplusplus
 }

@@ -39,7 +39,7 @@ extern "C"{
 #define VS_ERR_VENC_BUF_FULL         VS_ERR_CODE(E_MOD_ID_VENC, E_ERR_BUF_FULL)
 #define VS_ERR_VENC_BUSY             VS_ERR_CODE(E_MOD_ID_VENC, E_ERR_BUSY)
 #define VS_ERR_VENC_DEVICE_UNEXIST   VS_ERR_CODE(E_MOD_ID_VENC, E_ERR_DEVICE_UNEXIST)
-#define VS_ERR_VENC_TIMEOUT   		 VS_ERR_CODE(E_MOD_ID_VENC, E_ERR_TIMEOUT)
+#define VS_ERR_VENC_TIMEOUT          VS_ERR_CODE(E_MOD_ID_VENC, E_ERR_TIMEOUT)
 
 
 /**
@@ -48,7 +48,7 @@ extern "C"{
 */
 typedef enum vs_venc_stream_mode {
     E_VENC_STREAM_MODE_STREAM = 0,    ///< venc output data by stream.
-	E_VENC_STREAM_MODE_FRAME,    ///< venc output data by frame.
+    E_VENC_STREAM_MODE_FRAME,    ///< venc output data by frame.
     E_VENC_STREAM_MODE_NALU,    ///< venc output data by nalu.
     E_VENC_STREAM_MODE_MAX
 } vs_venc_stream_mode_e;
@@ -113,7 +113,7 @@ typedef struct vs_venc_jpeg_attr {
 * @details
 */
 typedef struct vs_venc_h264_attr {
-	vs_uint32_t bandwidth_save_strength;    ///< bandwidth save strength. value range: [0, 1, 2], default is 0.
+    vs_uint32_t bandwidth_save_strength;    ///< bandwidth save strength. value range: [0, 1, 2], default is 0.
 } vs_venc_h264_attr_s;
 
 /**
@@ -121,7 +121,7 @@ typedef struct vs_venc_h264_attr {
 * @details
 */
 typedef struct vs_venc_h265_attr {
-	vs_uint32_t bandwidth_save_strength;    ///< bandwidth save strength. value range: [0, 1, 2], default is 0
+    vs_uint32_t bandwidth_save_strength;    ///< bandwidth save strength. value range: [0, 1, 2], default is 0
 } vs_venc_h265_attr_s;
 
 /**
@@ -141,8 +141,10 @@ typedef struct vs_venc_enc_attr {
                                                     ///< jpeg [VENC_MIN_JPEG_HEIGHT,VENC_MAX_JPEG_HEIGHT]
                                                     ///< mjpeg [VENC_MIN_JPEG_HEIGHT,VENC_MAX_JPEG_HEIGHT]
     vs_uint32_t                stream_buf_size;     ///< stream buffer size.must not less than 12K bytes.
-                                                    ///  must bigger than frame_width *frame_height when stream_buf_mode is E_VENC_STREAM_BUF_MODE_NORMAL
-                                                    ///  must be 4096 aligned.
+                                                    ///  when stream_buf_mode is E_VENC_STREAM_BUF_MODE_NORMAL:
+                                                    ///       must NOT less then max_frame_width * max_frame_height / 2 with H.264/H.265;
+													///       must NOT less then ALIGN_UP(max_frame_width, 16) * ALIGN_UP(max_frame_height, 16) with JPEG/MJEPG;
+													///       ALIGN_UP is like ALIGN_UP(var, align) ((var + align - 1) & (~(var - 1))).
     vs_venc_stream_mode_e      stream_mode;         ///< the venc output stream mode.
     vs_venc_profile_e          profile;             ///< encode video profile
     vs_uint32_t                frame_width;         ///< encoding picture width.2 alignment
@@ -505,7 +507,7 @@ typedef enum vs_venc_nalu_type_h264 {
     E_VENC_NALU_H264_BSLICE = 0,     ///< the BSLICE type
     E_VENC_NALU_H264_PSLICE = 1,     ///< the PSLICE type
     E_VENC_NALU_H264_ISLICE = 2,     ///< the ISLICE type for the P frame
-    E_VENC_NALU_H264_IDRSLICE = 5,     ///< the ISLICE type for the I frame
+    E_VENC_NALU_H264_IDRSLICE = 5,   ///< the ISLICE type for the I frame
     E_VENC_NALU_H264_SEI    = 6,     ///< SEI
     E_VENC_NALU_H264_SPS    = 7,     ///< SPS
     E_VENC_NALU_H264_PPS    = 8,     ///< PPS
@@ -520,7 +522,7 @@ typedef enum vs_venc_nalu_type_h265 {
     E_VENC_NALU_H265_BSLICE = 0,    ///< the BSLICE type
     E_VENC_NALU_H265_PSLICE = 1,    ///< the PSLICE type
     E_VENC_NALU_H265_ISLICE = 2,    ///< the ISLICE type for the P frame
-    E_VENC_NALU_H265_IDRSLICE = 19,    ///< the ISLICE type for the I frame
+    E_VENC_NALU_H265_IDRSLICE = 19,  ///< the ISLICE type for the I frame
     E_VENC_NALU_H265_VPS    = 32,    ///< VPS
     E_VENC_NALU_H265_SPS    = 33,    ///< SPS
     E_VENC_NALU_H265_PPS    = 34,    ///< PPS
@@ -616,7 +618,7 @@ typedef struct vs_venc_stream_h265_info {
     vs_uint32_t intra_16x16_num;    ///< encodes the number of macroblocks using the intra16x16 prediction mode in the current frame
     vs_uint32_t intra_8x8_num;    ///< encodes the number of macroblocks using the intra8x8 prediction mode in the current frame
     vs_uint32_t intra_4x4_num;    ///< encodes the number of macroblocks using the intra4x4 prediction mode in the current frame
-	vs_frame_ref_type_e frame_ref_type;    ///< encoding frame type under the advanced frame jump reference mode
+    vs_frame_ref_type_e frame_ref_type;    ///< encoding frame type under the advanced frame jump reference mode
     vs_uint32_t attr_set_cnt;     ///< number of times that the channel attribute or parameters were set.
     vs_uint32_t pic_init_qp;    ///< initial qp value of the current frame encoding
     vs_uint32_t mean_qp;    ///< mean qp value of the current frame encoding
@@ -699,7 +701,6 @@ typedef struct vs_venc_qpmap_info {
     vs_uint32_t                 map_size;         ///< map table buf size
     vs_venc_qpmap_frame_type_e  frame_type;       ///< type of current picture
 } vs_venc_qpmap_info_s;
-
 
 /**
 * @brief Defines the information of frame with qpmap.
@@ -872,7 +873,11 @@ typedef struct vs_venc_jpeg_param {
     vs_uint8_t  y_qt[VENC_SCALINGLIST_BLK_SIZE];   ///< quantization table of y component. enable if qfactor equal to 52
     vs_uint8_t  cb_qt[VENC_SCALINGLIST_BLK_SIZE];  ///< quantization table of cb component. enable if qfactor equal to 52
     vs_uint8_t  cr_qt[VENC_SCALINGLIST_BLK_SIZE];  ///< quantization table of cr component. enable if qfactor equal to 52
-    vs_uint32_t mcu_per_ecs;    				   ///< Reserved.
+    vs_uint32_t mcu_per_ecs;    				   ///< [0, MIN(0xFFFF, total_mcu-1)];total_mcu is mcu number of whole frame;
+    											   ///< must be multiple of mcus in one row;
+    											   ///< Follow the rules when enable crop: start y must be multiple of 16;
+    											   ///< start y must be multiple of mcu_per_ecs.
+												   ///< must be 0 when rotation enabled.
 } vs_venc_jpeg_param_s;
 
 /**
@@ -883,7 +888,11 @@ typedef struct vs_venc_mjpeg_param {
     vs_uint8_t  y_qt[VENC_SCALINGLIST_BLK_SIZE];       ///< quantization table of y component
     vs_uint8_t  cb_qt[VENC_SCALINGLIST_BLK_SIZE];      ///< quantization table of cb component
     vs_uint8_t  cr_qt[VENC_SCALINGLIST_BLK_SIZE];      ///< quantization table of cr component
-    vs_uint32_t mcu_per_ecs;    					   ///< Reserved.
+    vs_uint32_t mcu_per_ecs;    					   ///< [0, MIN(0xFFFF, total_mcu-1)];total_mcu is mcu number of whole frame;
+    											   	   ///< must be multiple of mcus in one row;
+    											       ///< Follow the rules when enable crop: start y must be multiple of 16;
+    											       ///< start y must be multiple of mcu_per_ecs.
+													   ///< must be 0 when rotation enabled.
 } vs_venc_mjpeg_param_s;
 
 /**
@@ -1088,8 +1097,8 @@ typedef struct vs_venc_brc_param {
     							 ///<value range [-1 ,51]. -1 means rbc module will decide automatically. default is -1.
     vs_venc_scene_chg_detect_s scene_chg_detect;     ///< scene detection related control parameters.
     vs_bool_t                brc_stat_after_attrset_clear;///< clear brc statistic internal or not when brc attr changed. value range: [VS_FALSE, VS_TRUE], default is VS_FALSE
-	vs_venc_skip_level_e skip_level; ///< specific skip level of every frame, the bigger of level the more skipped pixels. default is E_VENC_SKIP_LEVEL_5.
-	union {
+    vs_venc_skip_level_e skip_level; ///< specific skip level of every frame, the bigger of level the more skipped pixels. default is E_VENC_SKIP_LEVEL_5.
+    union {
         vs_venc_brc_h264_cbr_param_s     h264_cbr;     ///< H.264 Channel CBR control mode advanced parameters.
         vs_venc_brc_h264_vbr_param_s     h264_vbr;     ///< H.264 Channel VBR control mode advanced parameters.
         vs_venc_brc_h264_avbr_param_s    h264_avbr;     ///< H.264 Channel AVBR control mode advanced parameters.
@@ -1201,7 +1210,7 @@ typedef enum vs_venc_frame_lost_mode {
 */
 typedef struct vs_venc_frame_lost {
     vs_bool_t                       enable;     ///< frame loss switch when the instantaneous bitrate above the threshold.value range :[VS_FALSE, VS_TRUE].default is VS_FALSE
-    vs_venc_frame_lost_mode_e       mode;     ///< Frame loss mode when the instantaneous bitrate above the threshold.
+    vs_venc_frame_lost_mode_e       mode;       ///< Frame loss mode when the instantaneous bitrate above the threshold.
     vs_uint32_t                     frame_lost_thr;     ///< frame loss threshold >64*1024(bit/s).
     vs_uint32_t                     max_allow_abandon_num;     ///< maximum number allowed to be continuously lost frames. value range: [0, 65535], default is 0.
     vs_uint32_t                     frame_window;  ///< moving bitrate frame number. value range:[2, gop],gop means gop size.
@@ -1235,8 +1244,8 @@ typedef struct vs_venc_frame_overrun {
 * @details
 */
 typedef enum vs_venc_gdr_mode {
-    E_VENC_GDR_ROW = 0, 	///< refresh the intra area by row.
-    E_VENC_GDR_COLUMN,		///< refresh the intra area by column.
+    E_VENC_GDR_ROW = 0, ///< refresh the intra area by row.
+    E_VENC_GDR_COLUMN,  ///< refresh the intra area by column.
     E_VENC_GDR_MAX
 } vs_venc_gdr_mode_e;
 
@@ -1246,8 +1255,8 @@ typedef enum vs_venc_gdr_mode {
 */
 typedef struct vs_venc_gdr {
     vs_bool_t      enable;      ///< whether to enable gdr encoding value range:[VS_FALSE, VS_TRUE],default VS_FALSE
-	vs_venc_gdr_mode_e mode;	///< specific refresh mode of GDR function. default is E_VENC_GDR_ROW.
-	vs_uint32_t    refresh_num; ///< number of P frames that I frame should split.value range :0 or [2, gop] default is 4.
+    vs_venc_gdr_mode_e mode;    ///< specific refresh mode of GDR function. default is E_VENC_GDR_ROW.
+    vs_uint32_t    refresh_num; ///< number of P frames that I frame should split.value range :0 or [2, gop] default is 4.
     vs_uint32_t    req_qp_i;    ///< qp value of I frame that force requested ,value range :[0, 51].
 } vs_venc_gdr_s;
 
@@ -1266,7 +1275,8 @@ typedef struct vs_venc_crop_info {
 */
 typedef struct vs_venc_rotation {
     vs_bool_t       enable;      ///< whether to enable rotation encoding data. value range:[VS_FALSE, VS_TRUE],default VS_FALSE
-    vs_fixed_rotation_e   mode;  ///< mode of rotation encoding,default E_FIXED_ROTATION_0
+    vs_fixed_rotation_e   mode;  ///< mode of rotation encoding,default E_FIXED_ROTATION_0.
+                                 ///< E_FIXED_ROTATION_90 and E_FIXED_ROTATION_270 are NOT supportted with H.264/JPEG/MJPEG when frame compress mode is not E_COMPRESS_MODE_NONE.
 } vs_venc_rotation_s;
 
 /*
@@ -1462,7 +1472,7 @@ typedef struct vs_venc_ipcm_area {
 */
 typedef struct vs_venc_intra_area {
     vs_int32_t  index;    ///< index of intra area encoding,must be 0.
-	vs_bool_t   enable;   ///< whether to enable intra area encoding,value range :[VS_FALSE, VS_TRUE],default is VS_FALSE
+    vs_bool_t   enable;   ///< whether to enable intra area encoding,value range :[VS_FALSE, VS_TRUE],default is VS_FALSE
     vs_rect_s   rect;     ///< rect area of intra area encoding.x、y、width、height should 16 pixel align for h.264,64 pixel align for h.265
 } vs_venc_intra_area_s;
 

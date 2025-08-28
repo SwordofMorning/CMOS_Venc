@@ -518,6 +518,34 @@ vs_int32_t vs_mal_vdec_mod_param_set(const vs_vdec_mod_param_s *p_mod_param);
 */
 vs_int32_t vs_mal_vdec_mod_param_get(vs_vdec_mod_param_s *p_mod_param);
 
+/**
+* @brief  Set lowlatency information by channel number.
+* @details
+* @param [in] vdec_chnid Channel number. Range: [0, MAX_VDEC_CHN_NUM).
+* @param [in] p_lowlatency_info The pointer of struct lowlatency information.
+* @retval VS_SUCCESS Success.
+* @retval VS_ERR_VDEC_INVALID_CHNID Channel number exceeds the maximum supported.
+* @retval VS_ERR_VDEC_NULL_PTR lowlatency parameters pointer is NULL.
+* @retval VS_ERR_VDEC_UNEXIST Channel is not created
+* @retval VS_ERR_VDEC_INVALID_PARAM --- mode is not E_LOWLATENCY_MODE_NORMAL.\n
+* --- line_cnt is not 0.
+* @note
+*/
+vs_int32_t vs_mal_vdec_chn_lowlatency_set(vs_int32_t vdec_chnid, const vs_lowlatency_attr_s *p_lowlatency_attr);
+
+/**
+* @brief  Get lowlatency information by channel number.
+* @details
+* @param [in] vdec_chnid Channel number. Range: [0, MAX_VDEC_CHN_NUM).
+* @param [out] p_lowlatency_info The pointer of struct lowlatency information.
+* @retval VS_SUCCESS Success.
+* @retval VS_ERR_VDEC_INVALID_CHNID Channel number exceeds the maximum supported.
+* @retval VS_ERR_VDEC_NULL_PTR lowlatency parameters pointer is NULL.
+* @retval VS_ERR_VDEC_UNEXIST Channel is not created
+* @note
+*/
+vs_int32_t vs_mal_vdec_chn_lowlatency_get(vs_int32_t vdec_chnid, vs_lowlatency_attr_s *p_lowlatency_attr);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1281,6 +1281,26 @@ vs_int32_t vs_mal_adec_decoder_register(vs_int32_t *p_handle, const vs_adec_deco
 */
 vs_int32_t vs_mal_adec_decoder_unregister(vs_int32_t handle);
 
+/**
+* @ingroup      vs_mal_audio
+* @brief        send audio frames to be mixed to mixer pool
+* @details
+* @param [in]   dev_id          audio input device id
+* @param [in]   chn_id          audio input channel id
+* @param [in]   p_frame         mixer frame pointer
+* @param [in]   timeout_ms      timeout to send the mixer frame
+*                               >0: error returns if the frame can't been submitted within timeout_ms
+*                               =0: return directly, error if can't be submitted, or success
+*                               -1: block mode until the frame has been submitted
+* @retval       VS_SUCCESS      no error
+* @retval       others          error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_ain_mixer_frame_send(vs_int32_t ai_devid, vs_int32_t ai_chnid, const vs_audio_frame_s *p_frame, vs_int32_t timeout_ms);
 
 #ifdef __cplusplus
 }

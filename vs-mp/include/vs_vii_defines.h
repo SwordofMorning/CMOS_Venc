@@ -204,10 +204,11 @@ typedef struct vs_vii_dev_pipe_bind {
 * @details
 */
 typedef enum vs_vii_vpp_mode {
-    E_VII_OFFLINE_VPP_OFFLINE = 0,  ///< vi_offline_vpp_offline mode.
-    E_VII_ONLINE_VPP_ONLINE,        ///< vi_online_vpp_online mode.
-    E_VII_ONLINE_VPP_OFFLINE,       ///< vi_online_vpp_offline mode.
-    E_VII_OFFLINE_VPP_ONLINE,       ///< vi_offline_vpp_online mode.
+    E_VII_OFFLINE_VPP_OFFLINE = 0,      ///< vi_offline_vpp_offline mode.
+    E_VII_ONLINE_VPP_ONLINE,            ///< vi_online_vpp_online mode.
+    E_VII_ONLINE_VPP_OFFLINE,           ///< vi_online_vpp_offline mode.
+    E_VII_OFFLINE_VPP_ONLINE,           ///< vi_offline_vpp_online mode.
+    E_VII_ONLINE_VPP_ONLINE_ADVANCE,    ///< vi_online_vpp_online advance mode.
     E_VII_VPP_MODE_MAX,
 } vs_vii_vpp_mode_e;
 

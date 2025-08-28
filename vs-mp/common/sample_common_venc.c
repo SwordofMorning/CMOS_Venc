@@ -400,19 +400,19 @@ vs_uint32_t sample_common_venc_bitrate_calc(vs_venc_brc_mode_e brc_mode, vs_size
 
     if (brc_mode >= E_VENC_BRC_MODE_MJPEG_CBR && brc_mode <= E_VENC_BRC_MODE_MJPEG_FIXQP) {
         if (frame_size.width <= PIC_D1_WIDTH && frame_size.height <= PIC_D1_HEIGHT) {
-            bitrate =(6 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
+            bitrate =(15 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
         } else if (frame_size.width <= PIC_720P_WIDTH && frame_size.height <= PIC_720P_HEIGHT) {
-            bitrate = (9 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
+            bitrate = (20 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
         } else if (frame_size.width <= PIC_1080P_WIDTH && frame_size.height <= PIC_1080P_HEIGHT) {
-            bitrate = (18 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
+            bitrate = (50 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
         } else if (frame_size.width <= PIC_2K_WIDTH && frame_size.height <= PIC_2K_HEIGHT) {
-            bitrate = (36 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
+            bitrate = (105 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
         } else if (frame_size.width <= PIC_2K_2688_WIDTH && frame_size.height <= PIC_2K_1520_HEIGHT) {
-            bitrate = (36 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
+            bitrate = (105 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
         } else if (frame_size.width <= PIC_4K_WIDTH && frame_size.height <= PIC_4K_HEIGHT) {
-            bitrate = (75 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
+            bitrate = (155 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
         } else {
-            bitrate = (75 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
+            bitrate = (155 * 1024 + frame_size.width + frame_size.height) * frame_rate / 30;
             vs_sample_trace("frame_size.width[%u] use default bitrate[%u]\n", frame_size.width, bitrate);
         }
     } else {
@@ -534,7 +534,7 @@ vs_int32_t sample_common_venc_bitrate_set(vs_int32_t venc_chnid, vs_uint32_t bit
     return VS_SUCCESS;
 }
 
-static vs_int32_t sample_common_venc_create(vs_int32_t venc_chnid, sample_venc_cfg_s *p_sample_venc_cfg)
+vs_int32_t sample_common_venc_create(vs_int32_t venc_chnid, sample_venc_cfg_s *p_sample_venc_cfg)
 {
     vs_int32_t ret = VS_SUCCESS;
     vs_venc_chn_attr_s venc_chn_attr;
@@ -585,7 +585,7 @@ static vs_int32_t sample_common_venc_create(vs_int32_t venc_chnid, sample_venc_c
     venc_chn_attr.enc_attr.max_frame_height = frame_size.height;
     venc_chn_attr.enc_attr.frame_width = frame_size.width;
     venc_chn_attr.enc_attr.frame_height = frame_size.height;
-    venc_chn_attr.enc_attr.stream_buf_size = STRIDE_UP(frame_size.height * frame_size.width * 2, 4096);
+    venc_chn_attr.enc_attr.stream_buf_size = STRIDE_UP(frame_size.height * frame_size.width * 4, 4096);
     venc_chn_attr.enc_attr.profile = profile;
     venc_chn_attr.enc_attr.stream_mode = E_VENC_STREAM_MODE_FRAME;
 
@@ -1164,7 +1164,7 @@ static vs_void_t *venc_acquire_stream_task(vs_void_t *arg)
             return VS_NULL;
         }
 
-        if (p_task_param->chn_attr[chn_index].enc_attr.type != E_PT_TYPE_JPEG) {
+        if (p_task_param->chn_attr[chn_index].enc_attr.type != E_PT_TYPE_JPEG && (p_task_param->store_strm == VS_TRUE)) {
             if(VS_SUCCESS != venc_stream_output_open(p_task_param, chn_index,
                                                      p_task_param->received_frame_num[chn_index])) {
                 vs_sample_trace(" chn[%d] file open failed, case can't go on.\n", p_task_param->venc_chnid[chn_index]);

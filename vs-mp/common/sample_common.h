@@ -19,6 +19,7 @@
 
 #include "vs_mal_vpp.h"
 #include "vs_mal_vo.h"
+#include "vs_mal_mipi_tx.h"
 //VII Start
 #include "vs_vii_defines.h"
 #include "vs_mal_mipi_rx.h"
@@ -42,7 +43,6 @@
 #if !defined(VS_815) && !defined(VS_816)
 #include "vs_mal_dsp.h"
 #endif
-#include "sample_common_mipitx.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,23 +84,28 @@ extern "C" {
 
 //VII Start
 typedef enum sample_sensor_type {
-    OV_OS08A10_MIPI_8M_30FPS_10BIT = 0,
-    OV_OS08A10_MIPI_2M_60FPS_10BIT,
-    OV_OS08A10_MIPI_8M_60FPS_10BIT,
-    OV_OS08A10_MIPI_8M_WDR2TO1_30FPS_10BIT,
+    OV_OS04A10_MIPI_4M_30FPS_10BIT = 0,
+    OV_OS04A10_MIPI_2M_30FPS_10BIT,
+    OV_OS04A10_MIPI_4MFULL_25FPS_12BIT,
+    OV_OS04A10_MIPI_4MFULL_WDR2TO1_25FPS_10BIT,
+
+    OV_OS04D10_MIPI_2M_25FPS_10BIT,
+    OV_OS04D10_MIPI_2M_30FPS_10BIT,
+    OV_OS04D10_MIPI_4M_25FPS_10BIT,
+    OV_OS04D10_MIPI_4M_30FPS_10BIT,
+    OV_OS04D10_MIPI_1M_120FPS_10BIT,
 
     OV_OS08A20_MIPI_8M_60FPS_10BIT,
     OV_OS08A20_MIPI_8M_50FPS_10BIT,
     OV_OS08A20_MIPI_8M_30FPS_10BIT,
     OV_OS08A20_MIPI_2M_120FPS_10BIT,
+    OV_OS08A20_MIPI_8M_WDR2TO1_30FPS_10BIT,
 
-    OV_OS04A10_MIPI_4M_30FPS_10BIT,
-    OV_OS04A10_MIPI_2M_30FPS_10BIT,
-    OV_OS04A10_MIPI_4MFULL_25FPS_12BIT,
-    OV_OS04A10_MIPI_4MFULL_WDR2TO1_25FPS_10BIT,
-
-    OV_OS04C10_MIPI_4MFULL_30FPS_12BIT,
-    OV_OV9734_MIPI_1M_30FPS_10BIT,
+    OV_OS08C10_MIPI_8M_30FPS_12BIT,
+    OV_OS08C10_MIPI_8M_WDR2TO1_30FPS_10BIT,
+    OV_OS08C10_MIPI_2M_120FPS_10BIT,
+    OV_OS08C10_MIPI_1M_240FPS_10BIT,
+    OV_OS08C10_MIPI_1M_WDR2TO1_120FPS_10BIT,
 
     SC_450AI_MIPI_4M_30FPS_10BIT,
     SC_450AI_MIPI_4M_25FPS_10BIT,
@@ -109,23 +114,8 @@ typedef enum sample_sensor_type {
     SC_450AI_MIPI_4M_WDR2TO1_25FPS_10BIT,
     SC_450AI_MIPI_2M_WDR3TO1_30FPS_10BIT,
     SC_450AI_MIPI_4MFULL_WDR2TO1_25FPS_10BIT,
-
-    SC_910GS_MIPI_8M_25FPS_12BIT,
-
-    SC_200AI_MIPI_2L_2M_30FPS_10BIT,
-    SC_200AI_MIPI_2L_2M_WDR2TO1_30FPS_10BIT,
-    SC_200AI_MIPI_2L_2M_25FPS_10BIT,
-    SC_200AI_MIPI_2L_2M_WDR2TO1_25FPS_10BIT,
-
-    SC_535HGS_MIPI_4L_5M_60FPS_12BIT,
-
-    SC_430AI_MIPI_4M_30FPS_10BIT,
-    SC_430AI_MIPI_4MFULL_30FPS_10BIT,
-    SC_430AI_MIPI_2M_30FPS_10BIT,
-    SC_430AI_MIPI_4MFULL_60FPS_10BIT,
-    SC_430AI_MIPI_4MFULL_WDR2TO1_30FPS_10BIT,
-    SC_430AI_MIPI_4M_WDR2TO1_30FPS_10BIT,
-    SC_430AI_MIPI_2M_WDR2TO1_30FPS_10BIT,
+    SC_450AI_MIPI_4M_30FPS_10BIT_LP,
+    SC_450AI_MIPI_4M_25FPS_10BIT_LP,
 
     SONY_IMX334_MIPI_8M_30FPS_12BIT,
     SONY_IMX334_MIPI_8M_45FPS_12BIT,
@@ -137,33 +127,14 @@ typedef enum sample_sensor_type {
     SONY_IMX347_MIPI_4M_WDR2TO1_30FPS_12BIT,
     SONY_IMX347_MIPI_4MFULL_WDR2TO1_25FPS_12BIT,
 
-    SONY_IMX485_MIPI_8M_15FPS_12BIT,
-    SONY_IMX485_MIPI_4L2C_8M_30FPS_12BIT,
-    SONY_IMX485_MIPI_8L_8M_30FPS_12BIT,
-
-    SONY_IMX305_SLVDS_8M_20FPS_12BIT,
-    SONY_IMX305_SLVDS_8L_9M_25FPS_12BIT,
-    SONY_IMX305_SLVDS_8L_9M_30FPS_12BIT,
-    SONY_IMX305_SLVDS_16L_8M_25FPS_12BIT,
-    SONY_IMX305_SLVDS_16L_9M_50FPS_12BIT,
-
     SONY_IMX385_MIPI_2M_25FPS_12BIT,
 
     SONY_IMX415_MIPI_8M_60FPS_12BIT,
+    SONY_IMX415_MIPI_8M_30FPS_12BIT,
     SONY_IMX415_MIPI_8M_WDR2TO1_30FPS_12BIT,
     SONY_IMX415_MIPI_8M_25FPS_12BIT,
     SONY_IMX415_MIPI_8M_WDR2TO1_25FPS_12BIT,
-
-    GPIXEL_GMAX3809_SLVDS_9M_LINEAR_25FPS_12BIT,
-    GPIXEL_GMAX3809_SLVDS_8L_9M_LINEAR_30FPS_12BIT,
-
-    GC_GC4653_MIPI_4M_30FPS_10BIT,
-    GC_GC4023_MIPI_4M_25FPS_10BIT,
-
-    SONY_IMX686_MIPI_8M_30FPS_14BIT,
-    SONY_IMX686_MIPI_8M_30FPS_14BIT_PD,
-    SONY_IMX686_MIPI_8M_QHDR_30FPS_14BIT,
-    SONY_IMX686_MIPI_8M_50FPS_10BIT,
+    SONY_IMX415_MIPI_2M_BINNING_50FPS_12BIT,
 
     SONY_IMX586_MIPI_8M_30FPS_10BIT,
     SONY_IMX586_MIPI_8M_QHDR_30FPS_10BIT,
@@ -174,12 +145,85 @@ typedef enum sample_sensor_type {
     SONY_IMX586_MIPI_2M_60FPS_10BIT,
     SONY_IMX586_MIPI_2M_120FPS_10BIT,
 
+    SONY_IMX678_MIPI_8M_30FPS_12BIT,
+    SONY_IMX678_MIPI_8M_60FPS_12BIT,
+    SONY_IMX678_MIPI_8M_WDR2TO1_30FPS_12BIT,
+
+    GPIXEL_GMAX3809_SLVDS_9M_LINEAR_25FPS_12BIT,
+    GPIXEL_GMAX3809_SLVDS_8L_9M_LINEAR_30FPS_12BIT,
+    BG1336_MIPI_50FPS_12BIT,
+
+#ifdef EXT_SENSOR
+    OV_OS08A10_MIPI_8M_30FPS_10BIT,
+    OV_OS08A10_MIPI_8M_60FPS_10BIT,
+    OV_OS08A10_MIPI_8M_WDR2TO1_30FPS_10BIT,
+    OV_OS08A10_MIPI_2M_120FPS_10BIT,
+    OV_OS08A10_MIPI_1M_174FPS_10BIT,
+    OV_OS08A10_MIPI_2M_50FPS_10BIT,
+    OV_OS08A10_MIPI_2M_60FPS_10BIT,
+
+    OV_OS04C10_MIPI_4MFULL_30FPS_12BIT,
+    OV_OS04C10_MIPI_4MFULL_WDR2TO1_30FPS_10BIT,
+    OV_OS04C10_MIPI_4MFULL_25FPS_12BIT,
+    OV_OS04C10_MIPI_4MFULL_WDR2TO1_25FPS_10BIT,
+    OV_OV9734_MIPI_1M_30FPS_10BIT,
+
+    OV_OS02H10_MIPI_2M_LINEAR_30FPS_12BIT,
+    OV_OS02H10_MIPI_2M_WDR2TO1_30FPS_12BIT,
+
+    SC_910GS_MIPI_8M_25FPS_12BIT,
+
+    SC_200AI_MIPI_2L_2M_30FPS_10BIT,
+    SC_200AI_MIPI_2L_2M_WDR2TO1_30FPS_10BIT,
+    SC_200AI_MIPI_2L_2M_25FPS_10BIT,
+    SC_200AI_MIPI_2L_2M_WDR2TO1_25FPS_10BIT,
+
+    SC_535HGS_MIPI_4L_5M_60FPS_12BIT,
+
+    SC_550XS_MIPI_8M_30FPS_10BIT,
+    SC_550XS_MIPI_2M_WDR2TO1_30FPS_10BIT,
+
+    SC_430AI_MIPI_4M_30FPS_10BIT,
+    SC_430AI_MIPI_4MFULL_30FPS_10BIT,
+    SC_430AI_MIPI_2M_30FPS_10BIT,
+    SC_430AI_MIPI_4MFULL_60FPS_10BIT,
+    SC_430AI_MIPI_4MFULL_WDR2TO1_30FPS_10BIT,
+    SC_430AI_MIPI_4M_WDR2TO1_30FPS_10BIT,
+    SC_430AI_MIPI_2M_WDR2TO1_30FPS_10BIT,
+
+    SC_121AT_MIPI_1M_WDR3TO1_BUILTIN_30FPS_12BIT,
+
+    SC_230AI_MIPI_2M_LINEAR_30FPS_10BIT,
+    SC_230AI_MIPI_2M_LINEAR_50FPS_10BIT,
+    SC_230AI_MIPI_2M_LINEAR_60FPS_10BIT,
+
+    SONY_IMX305_SLVDS_8M_20FPS_12BIT,
+    SONY_IMX305_SLVDS_8L_9M_25FPS_12BIT,
+    SONY_IMX305_SLVDS_8L_9M_30FPS_12BIT,
+    SONY_IMX305_SLVDS_16L_8M_25FPS_12BIT,
+    SONY_IMX305_SLVDS_16L_9M_50FPS_12BIT,
+
+    SONY_IMX385_MIPI_2M_120FPS_10BIT,
+    SONY_IMX385_MIPI_2M_30FPS_12BIT,
+
+    SONY_IMX485_MIPI_8M_15FPS_12BIT,
+    SONY_IMX485_MIPI_4L2C_8M_30FPS_12BIT,
+    SONY_IMX485_MIPI_8L_8M_30FPS_12BIT,
+
+    SONY_IMX686_MIPI_8M_30FPS_14BIT,
+    SONY_IMX686_MIPI_8M_30FPS_14BIT_PD,
+    SONY_IMX686_MIPI_8M_QHDR_30FPS_14BIT,
+    SONY_IMX686_MIPI_8M_50FPS_10BIT,
+
+    GC_GC4653_MIPI_4M_30FPS_10BIT,
+    GC_GC4023_MIPI_4M_25FPS_10BIT,
+
     SG2_OX03C10_MIPI_2M_WDR4TO1_BUILTIN_60FPS_12BIT,
 
-    BG0651_MIPI_100FPS_12BIT,
-    BG1336_MIPI_100FPS_12BIT,
+    OV_OS50C40_MIPI_8M_30FPS_10BIT,
+#endif
 
-    SAMPLE_SENSOR_TYPE_MAX,
+    SAMPLE_SENSOR_TYPE_MAX
 } sample_sensor_type_e;
 
 typedef struct sample_vii_physchn_cfg {
@@ -196,6 +240,7 @@ typedef struct sample_vii_extchn_cfg {
 typedef struct sample_vii_pipe_cfg {
     vs_uint32_t pipe_id;
     vs_vii_pipe_attr_s pipe_attr;
+    vs_crop_s precrop_info;
     vs_vii_pipe_param_s pipe_param;
     vs_vii_pipe_fpn_attr_s fpn_attr;
     vs_int8_t bus_id;
@@ -207,6 +252,9 @@ typedef struct sample_vii_pipe_cfg {
 
     vs_uint32_t ext_chn_num;
     sample_vii_ext_chn_cfg_s ext_chn_cfg[VII_MAX_EXT_CHN_NUM];
+
+    vs_vii_vc_attr_s vc_attr;
+    vs_bool_t vc_config_enable;
 } sample_vii_pipe_cfg_s;
 
 typedef struct sample_vii_route_cfg {
@@ -247,6 +295,19 @@ typedef struct {
     vs_uint32_t blk_size;
 } sample_fpn_frame_info_s;
 //VII End
+
+typedef enum mipitx_board_type {
+#ifdef VS_ORION
+	MIPITX_BOARD_VS819L_OI01,
+	MIPITX_BOARD_VS819L_OI02,
+#else
+	MIPITX_BOARD_VS8X9_CI01,
+	MIPITX_BOARD_VS8X9_CI02,
+	MIPITX_BOARD_VS8X9_CI03,
+	MIPITX_BOARD_VS909,
+#endif
+	MIPITX_BOARD_TYPE_MAX,
+} mipitx_board_type_e;
 
 typedef enum sample_vo_mode {
     E_VO_MODE_1MUX  ,
@@ -380,6 +441,7 @@ typedef struct sample_vdec_thread_param {
     vs_bool_t               is_circle_send;
     vs_bool_t               stop_send_task;
     pthread_t               tid_send;
+    vs_uint32_t             control_fps;
 
     // ltrp stream decode
     sample_vdec_ltrp_info_s ltrp_info;
@@ -429,9 +491,12 @@ typedef struct sample_vo_cfg {
     vs_bool_t enable;
     vs_uint32_t vo_devid;
     vs_uint32_t vo_layerid;
+    vs_bool_t   bypass_layer;
     sample_vo_wbc_source_type_e wbc_type;
     vs_vo_interface_type_e vo_intf_type;
     vs_vo_output_type_e vo_output;
+    vs_vo_timing_s timing;
+    vs_uint32_t mipitx_phy_rate;
     vs_uint32_t bg_color;
     vs_dynamic_range_e dynamic_range;
     vs_pixel_format_e pixel_format;
@@ -440,7 +505,9 @@ typedef struct sample_vo_cfg {
     vs_uint32_t img_height;
     vs_uint32_t zorder;
     vs_bool_t rotation_enable;
+    vs_vo_dev_policy_s policy;
     vs_uint32_t early_cfg_time;
+    vs_vo_clk_info_s clk_info;
 } sample_vo_cfg_s;
 
 typedef struct sample_vo_layer_cfg {
@@ -591,6 +658,22 @@ typedef struct vs_box_info {
 	vs_int32_t label;
 } vs_box_info_s;
 
+typedef struct sample_infra_cfg {
+    vs_char_t* sensor_name;
+    vs_int32_t mode_id;
+} sample_infra_cfg_s;
+
+typedef enum sample_infra_info_type {
+    E_INFRA_INFO_IFRAME = 1 << 0,
+    E_INFRA_INFO_OOC = 1 << 1,
+    E_INFRA_INFO_VIDEO_FRAME = 1 << 2,
+} sample_infra_info_type_e;
+
+typedef struct sample_infra_sensor_info {
+    vs_size_s image_size;
+    vs_uint32_t fps;
+} sample_infra_sensor_info_s;
+
 /*******************************************************
         function declaration
 *******************************************************/
@@ -631,8 +714,12 @@ vs_int32_t sample_common_avs_bind_venc(vs_int32_t avs_grpid, vs_int32_t avs_chni
 vs_int32_t sample_common_avs_unbind_venc(vs_int32_t avs_grpid, vs_int32_t avs_chnid, vs_int32_t venc_devid, vs_int32_t venc_chnid);
 vs_int32_t sample_common_vo_bind_venc(vs_int32_t wbc_id, vs_int32_t venc_devid, vs_int32_t venc_chnid);
 vs_int32_t sample_common_vo_unbind_venc(vs_int32_t wbc_id, vs_int32_t venc_devid, vs_int32_t venc_chnid);
+vs_int32_t sample_common_avs_bind_vpp(vs_int32_t avs_grpid, vs_int32_t avs_chnid,vs_int32_t vpp_grpid);
+vs_int32_t sample_common_avs_unbind_vpp(vs_int32_t avs_grpid, vs_int32_t avs_chnid,vs_int32_t vpp_grpid);
 
 vs_void_t sample_common_pause(vs_void_t);
+vs_int32_t sample_common_argv_val_get(char *argv[], vs_uint32_t index, vs_long_t *val);
+vs_int32_t sample_common_get_valid_argv_val(char *argv[], vs_uint32_t index, vs_int32_t *val, vs_int32_t min, vs_int32_t max);
 
 //VII Start
 vs_int32_t sample_common_vii_sensor_type_num_get();
@@ -671,6 +758,7 @@ vs_int32_t sample_comm_vpp_extchn_attr_set(vs_int32_t vpp_grpid, vs_bool_t* p_ch
 vs_int32_t sample_common_vpp_chn_acquire_start(vs_int32_t vpp_grpid, vs_int32_t vpp_chnid);
 vs_int32_t sample_common_vpp_chn_acquire_stop();
 
+vs_int32_t sample_common_venc_create(vs_int32_t venc_chnid, sample_venc_cfg_s *p_sample_venc_cfg);
 vs_int32_t sample_common_venc_start(vs_int32_t venc_chnid, sample_venc_cfg_s *p_sample_venc_cfg);
 vs_int32_t sample_common_venc_stop(vs_int32_t venc_chnid);
 vs_int32_t sample_common_venc_bitrate_set(vs_int32_t venc_chnid, vs_uint32_t bitrate);
@@ -697,10 +785,21 @@ vs_int32_t sample_common_vdec_stream_send_start(vs_int32_t vdec_chnnum, sample_v
 vs_int32_t sample_common_vdec_stream_send_stop(vs_int32_t vdec_chnnum, sample_vdec_thread_param_s *p_vdec_thread_param);
 vs_void_t sample_common_vdec_cmdrecv(vs_void_t);
 
+vs_int32_t mipitx_board_setting_get(char *argv);
+vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
+vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate);
+vs_int32_t sample_common_mipitx_stop();
+vs_char_t *sample_common_mipitx_board_type_get(mipitx_board_type_e board_type);
+
 void sample_common_vo_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk);
+vs_int32_t sample_common_vo_dev_start(sample_vo_cfg_s* p_vo_config);
+vs_int32_t sample_common_vo_dev_stop(sample_vo_cfg_s* p_vo_config);
+vs_int32_t sample_common_vo_intf_start(sample_vo_cfg_s* p_vo_config);
+vs_int32_t sample_common_vo_intf_stop(sample_vo_cfg_s* p_vo_config);
 vs_int32_t sample_common_vo_start(sample_vo_cfg_s* p_vo_config);
 vs_int32_t sample_common_vo_stop(sample_vo_cfg_s* p_vo_config);
 vs_int32_t sample_common_vo_disp1_cfg_get(enum sample_vo_output_intf_type type, sample_vo_cfg_s *vo_config);
+vs_int32_t sample_common_vo_dev_enable(sample_vo_cfg_s* p_vo_config);
 vs_int32_t sample_common_vo_layer_enable(sample_vo_cfg_s* p_vo_config);
 vs_int32_t sample_common_vo_chn_enable(sample_vo_cfg_s* p_vo_config);
 vs_int32_t sample_common_vo_chn_disable(sample_vo_cfg_s* p_vo_config);
@@ -714,7 +813,7 @@ vs_int32_t sample_common_vo_layer_add(sample_vo_layer_cfg_s* p_layer_cfg);
 vs_int32_t sample_common_vo_layer_remove(vs_int32_t devid, vs_int32_t layerid);
 
 #ifndef VS_ORION
-vs_int32_t sample_common_hdmi_start(vs_vo_output_type_e output, vs_vo_interface_type_e vo_intf_type);
+vs_int32_t sample_common_hdmi_start(sample_vo_cfg_s *vo_cfg);
 vs_int32_t sample_common_hdmi_stop();
 #endif
 
@@ -776,6 +875,16 @@ vs_int32_t sample_common_rtc_aout_thread_create(vs_int32_t ao_devid, vs_int32_t 
 vs_int32_t sample_common_rtc_ain_thread_destroy();
 vs_int32_t sample_common_rtc_ain_thread_create(vs_int32_t ai_devid, vs_int32_t ai_chnid);
 vs_int32_t sample_common_acodec_alc_set(void *attr);
+vs_int32_t sample_common_volte_thread_create(vs_int32_t ai_devid, vs_int32_t ai_chnid, vs_int32_t ao_devid, vs_int32_t ao_chnid,
+                                             vs_bool_t send_to_file);
+vs_int32_t sample_common_volte_thread_destroy(vs_int32_t ai_devid, vs_int32_t ai_chnid);
+vs_int32_t sample_common_voip_aout_sink_thread_create(vs_int32_t ao_devid, vs_int32_t ao_chnid, vs_aiodev_attr_s *p_aout_common_attr);
+vs_int32_t sample_common_voip_aout_sink_thread_destroy(vs_int32_t ao_devid, vs_int32_t ao_chnid);
+vs_int32_t sample_common_voip_ain_source_thread_create(vs_int32_t ai_devid, vs_int32_t ai_chnid, vs_int32_t aenc_chnid,
+                                                       vs_bool_t send_to_file);
+vs_int32_t sample_common_voip_ain_source_thread_destroy(vs_int32_t ai_devid, vs_int32_t ai_chnid);
+vs_int32_t sample_common_tts_thread_create(vs_int32_t ai_devid, vs_int32_t ao_devid, vs_aiodev_attr_s *p_aio_common_attr);
+vs_int32_t sample_common_tts_thread_destory();
 
 /*******************************************************
         NN function declaration
@@ -797,10 +906,32 @@ vs_int32_t sample_common_nn_input_buffer_destroy(const vs_nn_model_s *p_model, v
 *******************************************************/
 vs_uint32_t sample_common_rgn_get_min_handle(vs_rgn_type_e rgn_type);
 vs_uint32_t sample_common_rgn_get_update_surface(vs_uint32_t handle);
+vs_uint32_t sample_common_rgn_get_update_scale_surface(vs_uint32_t handle,
+    vs_uint32_t scale_handle, vs_bool_t zoom_out, vs_uint32_t scale_factor);
 vs_uint32_t sample_common_region_create(vs_uint32_t handle_num, vs_rgn_type_e rgn_type);
+vs_uint32_t sample_common_region_scale_create(vs_uint32_t handle_num, vs_rgn_type_e rgn_type,
+    vs_bool_t zoom_out, vs_uint32_t scale_factor);
 vs_uint32_t sample_common_rgn_destroy(vs_uint32_t handle_num, vs_rgn_type_e rgn_type);
 vs_uint32_t sample_common_rgn_unbind(vs_uint32_t handle_num, vs_rgn_type_e rgn_type, const vs_chn_s *p_chn);
 vs_uint32_t sample_common_rgn_chn_bind(vs_uint32_t handle_num, vs_rgn_type_e rgn_type, const vs_chn_s *p_chn);
+
+/*******************************************************
+        INFRA function declaration
+*******************************************************/
+vs_int32_t sample_common_infra_init(sample_infra_cfg_s *p_infra_cfg);
+vs_int32_t sample_common_infra_deinit();
+vs_int32_t sample_common_infra_start();
+vs_int32_t sample_common_infra_stop();
+vs_int32_t sample_common_infra_run(sample_infra_info_type_e info, vs_task_attr_s *p_video_frame_task);
+vs_void_t sample_common_infra_sensor_info_get(sample_infra_sensor_info_s *p_sensor_info);
+
+/*******************************************************
+        TDE function declaration
+*******************************************************/
+vs_int32_t sample_common_tde_init(vs_void_t);
+vs_int32_t sample_common_tde_exit(vs_void_t);
+vs_int32_t sample_common_tde_quick_scale(vs_uint64_t src_phy_addr, vs_size_s *p_src_size,
+    vs_uint64_t dst_phy_addr, vs_size_s *p_dst_size, vs_pixel_format_e format);
 
 #ifdef __cplusplus
 }

@@ -11,8 +11,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/gpio.h>
 
-#include "sample_common_mipitx.h"
+#include "sample_common.h"
 
 #define DPHY_DIV_UPPER_LIMIT	8000
 #define DPHY_DIV_LOWER_LIMIT	2000
@@ -44,45 +47,45 @@ mipitx_board_setting_s g_board_settings[MIPITX_BOARD_TYPE_MAX] = {
 #ifdef VS_ORION
 	/* MIPITX_BOARD_VS819L_OI01 */
 	{
-		.lcd_reset = 398, /* GPIO110 */
+		.lcd_reset = 110, /* GPIO110 */
 		.pwm_chip = 0,
 		.pwm_pin = 15,
 	},
 	/* MIPITX_BOARD_VS819L_OI02 */
 	{
-		.lcd_reset = 398, /* GPIO110 */
+		.lcd_reset = 110, /* GPIO110 */
 		.pwm_chip = 0,
 		.pwm_pin = 11,
 	},
 #else
 	/* MIPITX_BOARD_VS8X9_CI01 */
 	{
-		.lcd_reset = 410, /* GPIO122 */
+		.lcd_reset = 122, /* GPIO122 */
 		.pwm_chip = 0,
 		.pwm_pin = 6,
 	},
 	/* MIPITX_BOARD_VS8X9_CI02 */
 	{
-		.lcd_reset = 482, /* GPIO2 */
+		.lcd_reset = 2, /* GPIO2 */
 		.pwm_chip = 0,
 		.pwm_pin = 6,
 	},
 	/* MIPITX_BOARD_VS8X9_CI03 */
 	{
-		.lcd_reset = 442, /* GPIO90 */
+		.lcd_reset = 90, /* GPIO90 */
 		.pwm_chip = 0,
 		.pwm_pin = 6,
 	},
 	/* MIPITX_BOARD_VS909 */
 	{
-		.lcd_reset = 420, /* GPIO68 */
+		.lcd_reset = 68, /* GPIO68 */
 		.pwm_chip = 0,
 		.pwm_pin = 6,
 	},
 #endif
 };
 
-int mipitx_board_setting_get(char *argv)
+vs_int32_t mipitx_board_setting_get(char *argv)
 {
 	g_mipitx_board_type = atoi(argv);
 	if (g_mipitx_board_type >= MIPITX_BOARD_TYPE_MAX)
@@ -93,7 +96,8 @@ int mipitx_board_setting_get(char *argv)
 
 /* for mipitx to hdmi chip */
 static void mipitx_timing_get(vs_mipi_tx_config_s *config,
-vs_vo_output_type_e vo_output)
+	vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
+	vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate)
 {
 	switch (vo_output) {
 		case E_VO_OUTPUT_TYPE_1080P60:
@@ -152,12 +156,33 @@ vs_vo_output_type_e vo_output)
 
 			config->video_mode = E_BURST_MODE;
 			break;
+		case E_VO_OUTPUT_TYPE_USER:
+			if (!clk_info || !timing_info)
+				break;
+
+			if (!clk_info->pixel_clk_rate || !mipitx_phy_rate ||
+				!timing_info->hactive || !timing_info->vactive)
+				break;
+
+			config->pixel_clk = clk_info->pixel_clk_rate / 1000;  //kHz
+			config->phy_data_rate = mipitx_phy_rate;
+			config->sync_info.packet_size = timing_info->hactive;
+			config->sync_info.hpw = timing_info->hpw;
+			config->sync_info.hbp = timing_info->hbp;
+			config->sync_info.htotal = timing_info->hactive + timing_info->hpw + timing_info->hbp + timing_info->hfp;
+			config->sync_info.vactive = timing_info->vactive;
+			config->sync_info.vbp = timing_info->vbp;
+			config->sync_info.vfp = timing_info->vfp;
+			config->sync_info.vpw = timing_info->vpw;
+			break;
+
 		default:
 			break;
 	}
 }
 
-static int mipitx_config(vs_vo_output_type_e vo_output)
+static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
+	vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate)
 {
 	vs_int32_t ret;
 	vs_mipi_tx_config_s config = {};
@@ -179,7 +204,7 @@ static int mipitx_config(vs_vo_output_type_e vo_output)
 	config.sync_info.vfp = 15;
 	config.sync_info.vpw = 2;
 
-	mipitx_timing_get(&config, vo_output);
+	mipitx_timing_get(&config, vo_output, timing_info, clk_info, mipitx_phy_rate);
 
 	ret = vs_mal_mipi_tx_config(0, &config);
 	if (ret)
@@ -255,65 +280,67 @@ fail:
 
 static int panel_reset(void)
 {
-	char *export = "/sys/class/gpio/export";
-	vs_uint32_t reset_gpio = g_board_settings[g_mipitx_board_type].lcd_reset;
-	char file[64] = {0};
-	char gpio_str[10] = {0};
+	int fd = -1;
+	struct gpiohandle_request req;
+	struct gpiohandle_data data;
+	char chipname[17];
+	unsigned char reset_gpiochip = g_board_settings[g_mipitx_board_type].lcd_reset / 32;
+	vs_uint32_t reset_gpioline = g_board_settings[g_mipitx_board_type].lcd_reset % 32;
 
-	snprintf(gpio_str, sizeof(gpio_str), "%d", reset_gpio);
+	snprintf(chipname, sizeof(chipname), "/dev/gpiochip%d", reset_gpiochip);
 
-
-	FILE *fp_gpio, *fp;
-
-	snprintf(file, sizeof(file), "/sys/class/gpio/gpio%d/direction", reset_gpio);
-	fp_gpio = fopen(file, "w");
-	if (!fp_gpio) {
-		fp = fopen(export, "w");
-		if (!fp) {
-			printf("Failed to open %s\n", export);
-			goto fail;
-		}
-		snprintf(gpio_str, sizeof(gpio_str), "%d", reset_gpio);
-		fwrite(gpio_str, 1, strlen(gpio_str), fp);
-		fclose(fp);
-		fp = NULL;
-
-		fp_gpio = fopen(file, "w");
-		if (!fp_gpio) {
-			printf("Failed to open %s\n", file);
-			goto fail;
-		}
-	}
-
-	fwrite("out", 1, 3, fp_gpio);
-	fclose(fp_gpio);
-	fp_gpio = NULL;
-
-	snprintf(file, sizeof(file), "/sys/class/gpio/gpio%d/value", reset_gpio);
-	fp_gpio = fopen(file, "w");
-	if (!fp_gpio) {
-		printf("Failed to open %s\n", file);
+	fd = open(chipname, O_RDWR);
+	if (fd < 0) {
+		printf("Failed to open %s\n", chipname);
 		goto fail;
 	}
 
-	fwrite("1\n", 1, 2, fp_gpio);
-	fflush(fp_gpio);
+	memset(&req, 0, sizeof(req));
+	req.fd = -1;
+	req.lineoffsets[0] = reset_gpioline;
+	req.flags = GPIOHANDLE_REQUEST_OUTPUT;
+	req.lines = 1;
+	req.default_values[0] = 1;
+
+	if (ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &req) < 0) {
+		printf("Failed to request line handle\n");
+		goto fail;
+	}
+
+	memset(&data, 0, sizeof(data));
+	data.values[0] = 1;
+
+	if (ioctl(req.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) < 0) {
+		printf("Failed to set GPIO value\n");
+		goto fail;
+	}
+
 	usleep(1000);
-	fwrite("0\n", 1, 2, fp_gpio);
-	fflush(fp_gpio);
+	data.values[0] = 0;
+
+	if (ioctl(req.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) < 0) {
+		printf("Failed to set GPIO value\n");
+		goto fail;
+	}
+
 	usleep(1000);
-	fwrite("1\n", 1, 2, fp_gpio);
-	fflush(fp_gpio);
+	data.values[0] = 1;
+
+	if (ioctl(req.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) < 0) {
+		printf("Failed to set GPIO value\n");
+		goto fail;
+	}
+
 	usleep(120000);
-	fclose(fp_gpio);
+	close(req.fd);
+	close(fd);
 
 	return 0;
 fail:
-	printf("%s failed\n", __func__);
-	if (fp_gpio)
-		fclose(fp_gpio);
-	if (fp)
-		fclose(fp);
+	if(fd >= 0)
+		close(fd);
+	if(req.fd >= 0)
+		close(req.fd);
 	return -1;
 }
 
@@ -921,7 +948,8 @@ static int panel_init(vs_bool_t bist)
 	return 0;
 }
 
-int sample_common_mipitx_start(vs_vo_output_type_e vo_output)
+vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
+	vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate)
 {
 	vs_int32_t ret;
 
@@ -931,7 +959,7 @@ int sample_common_mipitx_start(vs_vo_output_type_e vo_output)
 		return -1;
 	}
 
-	ret = mipitx_config(vo_output);
+	ret = mipitx_config(vo_output, timing_info, clk_info, mipitx_phy_rate);
 	if (ret) {
 		printf("mipitx_config failed!\n");
 		goto exit;
@@ -966,7 +994,7 @@ exit:
 	return ret;
 }
 
-int sample_common_mipitx_stop()
+vs_int32_t sample_common_mipitx_stop()
 {
 	vs_int32_t ret;
 
@@ -988,7 +1016,7 @@ int sample_common_mipitx_stop()
 	return 0;
 }
 
-char *sample_common_mipitx_board_type_get(mipitx_board_type_e board_type)
+vs_char_t *sample_common_mipitx_board_type_get(mipitx_board_type_e board_type)
 {
 	switch (board_type) {
 #ifdef VS_ORION

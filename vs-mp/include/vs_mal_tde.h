@@ -260,6 +260,21 @@ vs_int32_t vs_mal_tde_rotate(vs_int32_t job_handle, const vs_tde_surface_s *p_sr
 */
 vs_int32_t vs_mal_tde_multi_blending(vs_int32_t job_handle, const vs_tde_surface_list_s *p_surf_list);
 
+/**
+* @brief       Add a draw line task
+* @details     Add one or draw line in dst surface
+* @param [in]  job_handle, the handle of this job
+* @param [in]  p_dst_surf, destinate surface list
+* @param [in]  lines_attr, line attr list
+* @param [in]  line_num, line number
+* @return      0 call success
+* @return      none 0 call failed, see ERROR_CODE for detail
+* @par
+*/
+vs_int32_t vs_mal_tde_draw_line(vs_int32_t job_handle, const vs_tde_surface_s *p_dst_surf,
+                                                       const vs_tde_line_attr_s lines_attr[],
+                                                       vs_uint32_t line_num);
+
 #ifdef __cplusplus
 }
 #endif

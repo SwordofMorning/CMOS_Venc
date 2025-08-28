@@ -1,12 +1,12 @@
 /**
- * @file main.c
- * @author XJT
- * @brief VS839 VENC demo - Simplified for videostrm mode only with interactive sensor selection
- * @version 0.3
- * @date 2025-06-19
- * 
- * @copyright Copyright (c) 2025
- * 
+ * @file    sample_vio.c
+ * @brief   sample vio implementation
+ * @details
+ * @author  Visinex Software Group
+ * @date    2022-05-25
+ * @version v1.00
+ * @Copyright (c) 2022 Shanghai Visinex Technologies Co., Ltd. All rights reserved.
+ *
  */
 #include <stdint.h>
 #include <stdlib.h>
@@ -24,509 +24,1146 @@
 #include <linux/videodev2.h>
 
 #include "sample_common.h"
+#include "vs_mal_vii.h"
 
-// 固定配置参数
-#define FIXED_MODE_INDEX 10
-#define DEFAULT_I2C_BUS_ID 5
-#define SAMPLE_VENC_INPUT_FORMAT E_PIXEL_FORMAT_YVU_420SP
-
-#define SAMPLE_VENC_CHNID_VALID_CHECK(venc_chnid)                                                                                                                                  \
-    do                                                                                                                                                                             \
-    {                                                                                                                                                                              \
-        if (venc_chnid < 0 || venc_chnid >= VENC_MAX_CHN_NUM)                                                                                                                      \
-        {                                                                                                                                                                          \
-            vs_sample_trace("channel [%d] not exist \n", venc_chnid);                                                                                                              \
-            return VS_ERR_VENC_INVALID_CHNID;                                                                                                                                      \
-        }                                                                                                                                                                          \
-    } while (0)
-
-#define SAMPLE_VENC_CHECK_NULLPTR(ptr)                                                                                                                                             \
-    do                                                                                                                                                                             \
-    {                                                                                                                                                                              \
-        if (ptr == VS_NULL)                                                                                                                                                        \
-        {                                                                                                                                                                          \
-            vs_sample_trace("check null point!\n");                                                                                                                                \
-            return VS_ERR_VENC_NULL_PTR;                                                                                                                                           \
-        }                                                                                                                                                                          \
-    } while (0);
-
-#if defined(VS_815)
-#define MAX_RESOLUTION_RATIO "5M"
-#else
-#define MAX_RESOLUTION_RATIO "4K"
-#endif
+static sample_fpn_frame_info_s g_fpn_frame_info;
+static volatile sig_atomic_t g_stop_flag = 0;
 
 extern vs_int8_t g_bus_id[VII_MAX_ROUTE_NUM];
 extern sample_sensor_type_e g_sensor_type[VII_MAX_ROUTE_NUM];
-extern vs_bool_t g_nr_3d;
-static vs_vii_vpp_mode_e g_vii_vpp_mode = E_VII_OFFLINE_VPP_ONLINE;
-// static vs_vii_vpp_mode_e g_vii_vpp_mode = E_VII_ONLINE_VPP_ONLINE;
-static volatile sig_atomic_t g_stop_flag = 0;
-static vs_uint32_t g_comm_vb_cnt = 12;
-static vs_compress_mode_e g_compress_mode = E_COMPRESS_MODE_NONE;
-static vs_int32_t g_sensor_framerate = 30;
-static vs_uint32_t g_pool_cnt = 1;
-static vs_uint32_t g_buffer_dimension = 1;
-static vs_vii_pipe_bypass_mode_e g_vii_pipe_bypass_mode = E_VII_PIPE_BYPASS_NONE;
-#ifndef VS_NO_ISP
-static vs_mirror_mode_e g_vii_sensor_mirror_mode = E_MIRROR_MODE_NONE;
+
+static vs_void_t sample_vii_get_vpp_grp_attr(vs_size_s *img_size, vs_vpp_grp_attr_s *grp_attr)
+{
+    grp_attr->max_width = img_size->width;
+    grp_attr->max_height = img_size->height;
+    grp_attr->dynamic_range = E_DYNAMIC_RANGE_SDR8;
+    grp_attr->pixel_format = E_PIXEL_FORMAT_YVU_420SP;
+    grp_attr->framerate.dst_framerate = -1;
+    grp_attr->framerate.src_framerate = -1;
+}
+
+static vs_void_t sample_vii_get_vpp_chn_attr(vs_size_s *img_size, vs_vpp_chn_attr_s *chn_attr)
+{
+    chn_attr->chn_mode = E_VPP_CHN_MODE_USER;
+    chn_attr->width = img_size->width;
+    chn_attr->height = img_size->height;
+    chn_attr->video_format = E_VIDEO_FORMAT_LINEAR;
+    chn_attr->pixel_format = E_PIXEL_FORMAT_YUV_420SP;
+    chn_attr->dynamic_range = E_DYNAMIC_RANGE_SDR8;
+    chn_attr->compress_mode = E_COMPRESS_MODE_NONE;
+    chn_attr->framerate.src_framerate = -1;
+    chn_attr->framerate.dst_framerate = -1;
+    chn_attr->mirror_enable = VS_FALSE;
+    chn_attr->flip_enable = VS_FALSE;
+    chn_attr->depth = 0;
+    chn_attr->aspect_ratio.mode = E_ASPECT_RATIO_MODE_NONE;
+}
+
+static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_cfg)
+{
+    vo_cfg->vo_devid = 0;
+    vo_cfg->vo_layerid = 0;
+
+    vo_cfg->vo_intf_type = E_VO_INTERFACE_TYPE_HDMI;
+    vo_cfg->vo_output = E_VO_OUTPUT_TYPE_1080P60;
+    vo_cfg->bg_color = 0;
+    vo_cfg->dynamic_range = E_DYNAMIC_RANGE_SDR8;
+    vo_cfg->pixel_format = E_PIXEL_FORMAT_YUV_420SP;
+    vo_cfg->vo_mode = E_VO_MODE_1MUX;
+    vo_cfg->img_width = 1920;
+    vo_cfg->img_height = 1080;
+    vo_cfg->enable = VS_TRUE;
+    vo_cfg->zorder = 0;
+
+#ifdef VS_ORION
+    vo_cfg->vo_intf_type = E_VO_INTERFACE_TYPE_MIPI;
+    vo_cfg->vo_output = E_VO_OUTPUT_TYPE_USER;
 #endif
-static vs_uint32_t g_fpn_enable = 0;
-static sample_fpn_frame_info_s g_fpn_frame_info;
-
-static vs_void_t sample_venc_main_usage(char* prog_name)
-{
-    printf("Usage : %s [sensor_type]\n", prog_name);
-    printf("Fixed mode: videostrm (H265-%s@30fps + videostrm)\n", MAX_RESOLUTION_RATIO);
-    printf("Fixed I2C bus: %d\n", DEFAULT_I2C_BUS_ID);
-    printf("If no sensor_type provided, interactive selection will be available.\n");
 }
 
-static vs_void_t sample_venc_sensor_type_usage()
+static vs_void_t  sample_vio_get_venc_cfg(vs_int32_t sensor_id, sample_venc_cfg_s *sample_venc_cfg,
+    vs_payload_type_e type, vs_venc_profile_e profile, vs_size_s *frame_size,
+    sample_brc_mode_e brc_mode, vs_venc_gop_attr_s *p_gop_attr)
 {
-    vs_int32_t i;
-    vs_int32_t sensor_type_num = sample_common_vii_sensor_type_num_get();
-
-    printf("sensor_type:\n");
-    for (i = 0; i < sensor_type_num; i++)
-    {
-        printf("\t %d) %s.\n", i, sample_common_sensor_type_name_get(i));
-    }
-}
-
-static vs_int32_t sample_venc_interactive_sensor_select()
-{
-    vs_int32_t sensor_type_num = sample_common_vii_sensor_type_num_get();
-    vs_int32_t selected_sensor = -1;
-    char input_buffer[32];
-
-    printf("\n=====Interactive Sensor Selection=====\n");
-    sample_venc_sensor_type_usage();
-
-    while (1)
-    {
-        printf("\nPlease select sensor type (0-%d) or 'q' to quit: ", sensor_type_num - 1);
-        fflush(stdout);
-
-        if (fgets(input_buffer, sizeof(input_buffer), stdin) != NULL)
-        {
-            // 移除换行符
-            input_buffer[strcspn(input_buffer, "\n")] = 0;
-
-            // 检查是否要退出
-            if (strcmp(input_buffer, "q") == 0 || strcmp(input_buffer, "Q") == 0)
-            {
-                printf("User cancelled sensor selection.\n");
-                return -1;
-            }
-
-            // 转换为整数
-            selected_sensor = atoi(input_buffer);
-
-            // 验证输入范围
-            if (selected_sensor >= 0 && selected_sensor < sensor_type_num)
-            {
-                printf("Selected sensor: %d) %s\n", selected_sensor, sample_common_sensor_type_name_get(selected_sensor));
-                return selected_sensor;
-            }
-            else
-            {
-                printf("Invalid input! Please enter a number between 0 and %d.\n", sensor_type_num - 1);
-            }
-        }
-    }
-}
-
-vs_void_t sample_venc_pause(vs_void_t)
-{
-    sleep(1);
-    printf("\n=====Press enter to exit sample_venc=====\n");
-    while (!g_stop_flag)
-    {
-        if (getchar() == '\n')
-        {
-            break;
-        }
-        usleep(10000);
-    };
-    printf("\n=====exit sample_venc=====\n");
-}
-
-static vs_int32_t sample_venc_param_parse(vs_int32_t argc, char* argv[])
-{
-    vs_int32_t sensor_type_num = sample_common_vii_sensor_type_num_get();
-    vs_int32_t selected_sensor = -1;
-
-    // 检查帮助参数
-    if (argc > 1 && strstr(argv[argc - 1], "-h"))
-    {
-        sample_venc_main_usage(argv[0]);
-        sample_venc_sensor_type_usage();
-        printf("Example:\n");
-        printf("\te.g : %s %d\n", argv[0], g_sensor_type[0]);
-        return VS_FAILED;
-    }
-
-    // 参数处理
-    if (argc == 1)
-    {
-        // 没有提供参数，使用交互式选择
-        selected_sensor = sample_venc_interactive_sensor_select();
-        if (selected_sensor < 0)
-        {
-            return VS_FAILED;
-        }
-    }
-    else if (argc == 2)
-    {
-        // 提供了sensor_type参数
-        selected_sensor = atoi(argv[1]);
-
-        // 验证sensor_type范围
-        if (selected_sensor < 0 || selected_sensor >= sensor_type_num)
-        {
-            printf("Error: Invalid sensor_type %d. Valid range: 0-%d\n", selected_sensor, sensor_type_num - 1);
-            sample_venc_sensor_type_usage();
-            return VS_FAILED;
-        }
-
-        printf("Using sensor: %d) %s\n", selected_sensor, sample_common_sensor_type_name_get(selected_sensor));
-    }
-    else
-    {
-        // 参数过多
-        printf("Error: Too many arguments.\n");
-        sample_venc_main_usage(argv[0]);
-        return VS_FAILED;
-    }
-
-    // 设置全局变量
-    g_sensor_type[0] = selected_sensor;
-    g_bus_id[0] = DEFAULT_I2C_BUS_ID; // 固定使用默认I2C总线
-
-    printf("Configuration: Sensor Type=%d, I2C Bus=%d\n", g_sensor_type[0], g_bus_id[0]);
-
-    return VS_SUCCESS;
-}
-
-vs_int32_t sample_venc_check_performance(vs_int32_t sensor_id, vs_bool_t* p_vpp_chn_enable)
-{
-    vs_int32_t ret = VS_SUCCESS, i = 0, vpp_chn_num = 0;
-    vs_size_s sensor_size;
+    vs_int32_t ret = VS_SUCCESS;
     vs_int32_t sensor_framerate = 30;
 
-    sample_common_vii_sensor_img_size_get(sensor_id, &sensor_size);
-
-    ret = sample_common_vii_sensor_framerate_get(sensor_id, &sensor_framerate);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_vii_sensor_framerate_get failed, ret[%d]\n", ret);
-        return ret;
-    }
-
-    for (i = 0; i < VPP_MAX_PHYCHN_NUM; i++)
-    {
-        if (p_vpp_chn_enable[i] == VS_TRUE)
-        {
-            vpp_chn_num++;
+    if (sensor_id >= 0) {
+        ret = sample_common_vii_sensor_framerate_get(sensor_id, &sensor_framerate);
+        if (ret != VS_SUCCESS) {
+            vs_sample_trace("sample_common_vii_sensor_framerate_get failed, ret[%d]\n", ret);
         }
     }
-
-    if (sensor_size.width >= PIC_4K_WIDTH && sensor_size.height >= PIC_4K_HEIGHT && sensor_framerate >= 60 && vpp_chn_num > 1)
-    {
-        vs_sample_trace("check_performance failed,vpp_chn_num[%d] width[%u] height[%u] framerate[%d]\n", vpp_chn_num, sensor_size.width, sensor_size.height, sensor_framerate);
-        return VS_FAILED;
+    sample_venc_cfg->format = E_PIXEL_FORMAT_YUV_420SP;
+    sample_venc_cfg->compress = VS_FALSE;
+    sample_venc_cfg->type = type;
+    sample_venc_cfg->profile = profile;
+    sample_venc_cfg->frame_size.width = frame_size->width;
+    sample_venc_cfg->frame_size.height = frame_size->height;
+    sample_venc_cfg->brc_mode = brc_mode;
+    sample_venc_cfg->frc.dst_framerate = sensor_framerate;
+    sample_venc_cfg->frc.src_framerate = sensor_framerate;
+    sample_venc_cfg->bandwidth_save_strength = 0;
+    if (p_gop_attr != NULL) {
+        sample_venc_cfg->gop_attr = *p_gop_attr;
     }
-
-    return VS_SUCCESS;
 }
 
-static vs_int32_t sample_venc_sys_init(vs_int32_t sensor_id, vs_size_s input_size)
+static vs_void_t sample_vio_get_stream_threadparam(sample_venc_acquire_stream_param_s *p_acquire_stream_param,
+                                                   vs_int32_t *venc_chnid, vs_int32_t chn_num, vs_bool_t store_strm)
 {
-    vs_uint32_t i = 0;
-    vs_vb_cfg_s vb_cfg;
+    vs_int32_t i = VS_SUCCESS;
+
+    memset(p_acquire_stream_param, 0, sizeof(sample_venc_acquire_stream_param_s));
+    p_acquire_stream_param->stop_stream_task = VS_FALSE;
+    p_acquire_stream_param->chn_num = chn_num;
+    p_acquire_stream_param->store_strm = store_strm;
+    for (i = 0; i < chn_num; i++) {
+        p_acquire_stream_param->venc_chnid[i] = venc_chnid[i];
+    }
+}
+
+vs_int32_t sample_vio_vii_vpp_venc_vo_case(vs_vii_vpp_mode_e vii_vpp_mode)
+{
+    vs_int32_t ret;
+    vs_int32_t blk_cnt;
+    vs_int32_t wdr_blk_cnt;
+    vs_int32_t sensor_id = 0;
+    vs_pixel_format_e pixel_format;
     vs_uint32_t frame_num;
-    vs_int32_t ret = VS_SUCCESS;
-    vs_pixel_format_e sensor_format;
+    vs_size_s img_size = {0};
+    vs_vb_cfg_s vb_cfg = {0};
+    sample_vii_cfg_s vii_cfg = {0};
+    vs_int32_t vii_pipeid = 0;
+    vs_int32_t vii_chnid = 0;
+    vs_int32_t vpp_grpid = 0;
+    vs_int32_t vpp_chnid = 0;
+    vs_int32_t vo_devid = 0;
+    vs_int32_t vo_chnid = 0;
+    vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
+    vs_vpp_grp_attr_s vpp_grp_attr = {0};
+    vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
+    sample_vo_cfg_s vo_cfg = {0};
+    vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
+    vs_int32_t sensor_framerate = 30;
 
+    switch (vii_vpp_mode) {
+        case E_VII_ONLINE_VPP_ONLINE:
+            blk_cnt = 7;
+            break;
+        case E_VII_ONLINE_VPP_OFFLINE:
+            blk_cnt = 9;
+            break;
+        case E_VII_OFFLINE_VPP_ONLINE:
+            blk_cnt = 10;
+            break;
+        case E_VII_OFFLINE_VPP_OFFLINE:
+            blk_cnt = 12;
+            break;
+        default:
+            blk_cnt = 12;
+            break;
+    }
+
+    sample_common_vii_sensor_framerate_get(sensor_id, &sensor_framerate);
+    if (sensor_framerate > 60) {
+        blk_cnt += 5;
+    }
+
+#ifdef VS_ORION
+    blk_cnt += 5;
+#endif
+
+    switch (vii_vpp_mode) {
+        case E_VII_ONLINE_VPP_ONLINE:
+        case E_VII_ONLINE_VPP_OFFLINE:
+            wdr_blk_cnt = 1;
+            break;
+        case E_VII_OFFLINE_VPP_ONLINE:
+        case E_VII_OFFLINE_VPP_OFFLINE:
+            wdr_blk_cnt = 4;
+            break;
+        default:
+            wdr_blk_cnt = 4;
+            break;
+    }
+
+    sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
+    sample_common_vii_sensor_pixel_format_get(sensor_id, &pixel_format);
     frame_num = sample_common_vii_wdr_frame_num_get(sensor_id);
-    sample_common_vii_sensor_pixel_format_get(sensor_id, &sensor_format);
+    if ((frame_num > 1) && (wdr_blk_cnt != 0)) {
+        vb_cfg.pool_cnt = 2;
+        vb_cfg.ast_commpool[0].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, frame_num);
+        vb_cfg.ast_commpool[0].blk_cnt = wdr_blk_cnt;
+        vb_cfg.ast_commpool[0].remap_mode = VB_REMAP_MODE_NONE;
 
-    memset(&vb_cfg, 0, sizeof(vs_vb_cfg_s));
-    vb_cfg.pool_cnt = g_pool_cnt;
-    for (i = 0; i < g_pool_cnt; i++)
-    {
-        vb_cfg.ast_commpool[i].blk_size = sample_common_buffer_size_get(&input_size, sensor_format, g_compress_mode, frame_num) * g_buffer_dimension;
-        vb_cfg.ast_commpool[i].blk_cnt = g_comm_vb_cnt;
-        vb_cfg.ast_commpool[i].remap_mode = VB_REMAP_MODE_NONE;
-        printf("index %d, blk_size[%llu] blk_cnt[%u]!\n", i, vb_cfg.ast_commpool[i].blk_size, vb_cfg.ast_commpool[i].blk_cnt);
+        vb_cfg.ast_commpool[1].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, 1);
+        vb_cfg.ast_commpool[1].blk_cnt = blk_cnt - wdr_blk_cnt;
+        vb_cfg.ast_commpool[1].remap_mode = VB_REMAP_MODE_NONE;
+    } else {
+        vb_cfg.pool_cnt = 1;
+        vb_cfg.ast_commpool[0].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, 1);
+        vb_cfg.ast_commpool[0].blk_cnt = blk_cnt;
+        vb_cfg.ast_commpool[0].remap_mode = VB_REMAP_MODE_NONE;
     }
 
     ret = sample_common_sys_init(&vb_cfg);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_sys_init failed, ret[0x%x]\n", ret);
-        return ret;
+    if (ret != VS_SUCCESS) {
+        goto exit0;
     }
 
-    return VS_SUCCESS;
-}
+    vii_cfg.vii_vpp_mode = vii_vpp_mode;
+    vii_cfg.route_num = 1;
+    sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
+    vii_cfg.route_cfg[0].pipe_cfg[0].pipe_attr.compress_mode = E_COMPRESS_MODE_NONE;
+    vii_cfg.route_cfg[0].pipe_cfg[0].phys_chn_cfg[0].chn_attr.compress_mode = E_COMPRESS_MODE_RASTER;
 
-vs_int32_t sample_venc_vii_init(vs_int32_t sensor_id, sample_vii_cfg_s* p_vii_cfg)
-{
-    vs_int32_t ret = VS_SUCCESS;
-    vs_int32_t i = 0, j = 0;
-
-    vs_sample_trace("vii_init sensor_id[%d] g_sensor_type[%d]\n", sensor_id, g_sensor_type[0]);
-
-    p_vii_cfg->vii_vpp_mode = g_vii_vpp_mode;
-    p_vii_cfg->route_num = 1;
-    sample_common_vii_default_cfg_get(sensor_id, &p_vii_cfg->route_cfg[0]);
-
-    ret = sample_common_vii_sensor_framerate_get(sensor_id, &g_sensor_framerate);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_vii_sensor_framerate_get failed, ret[%d]\n", ret);
-        return ret;
-    }
-    for (i = 0; i < DEV_BIND_MAX_PIPE_NUM; i++)
-    {
-        for (j = 0; j < VII_MAX_PHYS_CHN_NUM; j++)
-        {
-#ifdef VS_ORION
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].pipe_attr.compress_mode = E_COMPRESS_MODE_NONE;
-#else
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].pipe_attr.compress_mode = E_COMPRESS_MODE_NONE;
-#endif
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].phys_chn_cfg[j].chn_attr.framerate.src_framerate = g_sensor_framerate;
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].phys_chn_cfg[j].chn_attr.framerate.dst_framerate = g_sensor_framerate;
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].pipe_attr.bypass_mode = g_vii_pipe_bypass_mode;
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].phys_chn_cfg[j].chn_attr.compress_mode = g_compress_mode;
-        }
-        for (j = 0; j < VII_MAX_EXT_CHN_NUM; j++)
-        {
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].ext_chn_cfg[j].chn_attr.framerate.src_framerate = g_sensor_framerate;
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].ext_chn_cfg[j].chn_attr.framerate.dst_framerate = g_sensor_framerate;
-            p_vii_cfg->route_cfg[0].pipe_cfg[i].ext_chn_cfg[j].chn_attr.compress_mode = g_compress_mode;
-        }
-    }
-
-    if (1 == g_fpn_enable)
-    {
-        sample_common_get_fpn_cfg(&p_vii_cfg->route_cfg[0].pipe_cfg[0], &g_fpn_frame_info);
-    }
-
-    ret = sample_common_vii_start(p_vii_cfg);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_vii_start failed, ret[0x%x]\n", ret);
-        return ret;
-    }
-
-#ifndef VS_NO_ISP
-    sample_common_vii_mirror_mode_set(sensor_id, g_vii_sensor_mirror_mode);
-#endif
-    return VS_SUCCESS;
-}
-
-static vs_int32_t sample_venc_vpp_init(vs_int32_t vpp_grpid, vs_size_s input_size, vs_size_s* p_output_size, vs_bool_t* p_chn_enable, vs_bool_t lowlatency_enable)
-{
-    vs_int32_t i = 0, ret = 0;
-    vs_vpp_grp_attr_s vpp_grp_attr;
-    vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
-
-    memset(&vpp_grp_attr, 0, sizeof(vpp_grp_attr));
-    vpp_grp_attr.max_width = input_size.width;
-    vpp_grp_attr.max_height = input_size.height;
-    vpp_grp_attr.dynamic_range = E_DYNAMIC_RANGE_SDR8;
-    vpp_grp_attr.pixel_format = E_PIXEL_FORMAT_YVU_420SP;
-    vpp_grp_attr.framerate.dst_framerate = g_sensor_framerate;
-    vpp_grp_attr.framerate.src_framerate = g_sensor_framerate;
-
-    memset(&vpp_chn_attr, 0, sizeof(vpp_chn_attr));
-    for (i = 0; i < VPP_MAX_PHYCHN_NUM; i++)
-    {
-        if (p_chn_enable[i] == VS_TRUE)
-        {
-            vpp_chn_attr[i].chn_mode = E_VPP_CHN_MODE_USER;
-            vpp_chn_attr[i].width = p_output_size[i].width;
-            vpp_chn_attr[i].height = p_output_size[i].height;
-            vpp_chn_attr[i].video_format = E_VIDEO_FORMAT_LINEAR;
-            vpp_chn_attr[i].pixel_format = SAMPLE_VENC_INPUT_FORMAT;
-            vpp_chn_attr[i].dynamic_range = E_DYNAMIC_RANGE_SDR8;
-            if (lowlatency_enable == VS_TRUE)
-            {
-                vpp_chn_attr[i].compress_mode = E_COMPRESS_MODE_NONE;
-            }
-            else
-            {
-                vpp_chn_attr[i].compress_mode = g_compress_mode;
-            }
-            vpp_chn_attr[i].framerate.src_framerate = g_sensor_framerate;
-            vpp_chn_attr[i].framerate.dst_framerate = g_sensor_framerate;
-            vpp_chn_attr[i].mirror_enable = VS_FALSE;
-            vpp_chn_attr[i].flip_enable = VS_FALSE;
-            vpp_chn_attr[i].depth = 0;
-            vpp_chn_attr[i].aspect_ratio.mode = E_ASPECT_RATIO_MODE_NONE;
-        }
-    }
-    if (lowlatency_enable == VS_TRUE)
-    {
-        ret = sample_common_vpp_lowlatency_start(vpp_grpid, p_chn_enable, &vpp_grp_attr, vpp_chn_attr);
-    }
-    else
-    {
-        ret = sample_common_vpp_start(vpp_grpid, p_chn_enable, &vpp_grp_attr, vpp_chn_attr);
-    }
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_vpp_start failed, ret[0x%x]\n", ret);
-        return ret;
-    }
-    return ret;
-}
-
-vs_int32_t sample_venc_chn_init(vs_int32_t venc_chnid,
-                                vs_payload_type_e type,
-                                vs_venc_profile_e profile,
-                                vs_size_s frame_size,
-                                sample_brc_mode_e brc_mode,
-                                vs_venc_gop_attr_s* p_gop_attr)
-
-{
-    vs_int32_t ret = VS_SUCCESS;
-    sample_venc_cfg_s sample_venc_cfg;
-
-    memset(&sample_venc_cfg, 0, sizeof(sample_venc_cfg_s));
-    sample_venc_cfg.format = SAMPLE_VENC_INPUT_FORMAT;
-    sample_venc_cfg.compress = (g_compress_mode == E_COMPRESS_MODE_NONE) ? VS_FALSE : VS_TRUE;
-    sample_venc_cfg.type = type;
-    sample_venc_cfg.profile = profile;
-    sample_venc_cfg.frame_size = frame_size;
-    sample_venc_cfg.brc_mode = brc_mode;
-    sample_venc_cfg.frc.dst_framerate = g_sensor_framerate;
-    sample_venc_cfg.frc.src_framerate = g_sensor_framerate;
-    sample_venc_cfg.bandwidth_save_strength = 0;
-    if (p_gop_attr != NULL)
-    {
-        sample_venc_cfg.gop_attr = *p_gop_attr;
-    }
-    ret = sample_common_venc_start(venc_chnid, &sample_venc_cfg);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_venc_start failed, ret[0x%x]\n", ret);
-        return ret;
-    }
-
-    return ret;
-}
-
-vs_int32_t sample_venc_videostrm(vs_int32_t argc, char* argv[])
-{
-    vs_int32_t ret = VS_SUCCESS;
-    vs_int32_t sensor_id = 0;
-    vs_size_s sensor_size;
-    vs_int32_t vii_pipeid = 0;
-    vs_int32_t vii_chnid = 0;
-    sample_vii_cfg_s vii_cfg;
-    vs_int32_t vpp_grpid = 0;
-    vs_int32_t vpp_chnid = 0;
-    vs_size_s vpp_output_size[VPP_MAX_PHYCHN_NUM] = {0};
-    vs_bool_t vpp_chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
-    vs_int32_t venc_devid = 0;
-    vs_int32_t venc_chnid[1] = {0};
-    vs_payload_type_e encode_type[1] = {E_PT_TYPE_H265};
-    vs_venc_profile_e profile[1] = {E_VENC_PROFILE_H265_MAIN};
-    sample_brc_mode_e brc_mode = E_VENC_BRC_CBR;
-    vs_venc_gop_mode_e gop_mode = E_VENC_GOP_MODE_NORMP;
-    vs_venc_gop_attr_s gop_attr;
-
-    ret = sample_venc_param_parse(argc, argv);
-    if (ret != VS_SUCCESS)
-    {
-        return ret;
-    }
-
-    ret = sample_venc_check_performance(sensor_id, vpp_chn_enable);
-    if (ret != VS_SUCCESS)
-    {
-        return ret;
-    }
-
-    sample_common_vii_sensor_img_size_get(sensor_id, &sensor_size);
-    ret = sample_venc_sys_init(sensor_id, sensor_size);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_venc_sys_init failed, ret[0x%x]\n", ret);
-        return ret;
-    }
-
-    ret = sample_venc_vii_init(sensor_id, &vii_cfg);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_venc_vii_init failed, ret[0x%x]\n", ret);
-        goto exit_sys_exit;
-    }
-
-    vpp_output_size[0] = sensor_size;
-    ret = sample_venc_vpp_init(vpp_grpid, sensor_size, vpp_output_size, vpp_chn_enable, VS_FALSE);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_vpp_start failed, ret[0x%x]\n", ret);
-        goto exit_vii_stop;
+    ret = sample_common_vii_start(&vii_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit1;
     }
 
     ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_vii_bind_vpp failed, ret[0x%x]\n", ret);
-        goto exit_vpp_stop;
+    if (ret != VS_SUCCESS) {
+        goto exit2;
     }
 
-    ret = sample_common_venc_gop_attr_get(gop_mode, &gop_attr);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("gop_attr_get failed, ret[0x%x]\n", ret);
-        goto exit_vii_unbind_vpp;
-    }
-    ret = sample_venc_chn_init(venc_chnid[0], encode_type[0], profile[0], vpp_output_size[0], brc_mode, &gop_attr);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_venc_chn_init failed, ret[0x%x]\n", ret);
-        goto exit_vii_unbind_vpp;
+    sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    if (ret != VS_SUCCESS) {
+        goto exit3;
     }
 
-    ret = sample_common_vpp_bind_venc(vpp_grpid, vpp_chnid, venc_devid, venc_chnid[0]);
-    if (ret != VS_SUCCESS)
-    {
-        vs_sample_trace("sample_common_vpp_bind_venc failed, ret[0x%x]\n", ret);
-        goto exit_venc0_stop;
+    ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+    if (ret != VS_SUCCESS) {
+        goto exit4;
     }
-    sample_venc_pause();
 
-    vs_sample_trace("exit_venc_acquire_stream_stop \n");
+    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        ret = sample_common_dsp_init(0, name);
+        if (ret != VS_SUCCESS) {
+            goto exit5;
+        }
+    }
 
-    vs_sample_trace("exit_vpp_unbind_venc0\n");
-    sample_common_vpp_unbind_venc(vpp_grpid, vpp_chnid, venc_devid, venc_chnid[0]);
-exit_venc0_stop:
-    vs_sample_trace("exit_venc0_stop\n");
-    sample_common_venc_stop(venc_chnid[0]);
-exit_vii_unbind_vpp:
-    vs_sample_trace("exit_vii_unbind_vpp\n");
+    ret = sample_common_vo_start(&vo_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit5;
+    }
+
+    sample_common_pause();
+
+    sample_common_vo_stop(&vo_cfg);
+
+exit5:
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        sample_common_dsp_exit(0);
+    }
+    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+exit4:
+    sample_common_vpp_stop(vpp_grpid, chn_enable);
+exit3:
     sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
-exit_vpp_stop:
-    vs_sample_trace("exit_vpp_stop\n");
-    sample_common_vpp_stop(vpp_grpid, vpp_chn_enable);
-exit_vii_stop:
-    vs_sample_trace("exit_vii_stop\n");
+exit2:
     sample_common_vii_stop(&vii_cfg);
-exit_sys_exit:
-    vs_sample_trace("exit_sys_exit\n");
+exit1:
     sample_common_sys_exit();
+exit0:
     return ret;
 }
 
-static vs_void_t sample_venc_register_signal_handler(void (*sig_handler)(int))
+vs_int32_t sample_vio_vii_online_vpp_online_case(vs_void_t)
+{
+    return sample_vio_vii_vpp_venc_vo_case(E_VII_ONLINE_VPP_ONLINE);
+}
+
+vs_int32_t sample_vio_vii_online_vpp_offline_case(vs_void_t)
+{
+    return sample_vio_vii_vpp_venc_vo_case(E_VII_ONLINE_VPP_OFFLINE);
+}
+
+vs_int32_t sample_vio_vii_offline_vpp_online_case(vs_void_t)
+{
+    return sample_vio_vii_vpp_venc_vo_case(E_VII_OFFLINE_VPP_ONLINE);
+}
+
+vs_int32_t sample_vio_fpn_case(vs_void_t)
+{
+    vs_int32_t ret;
+    vs_int32_t sensor_id = 0;
+    vs_pixel_format_e pixel_format;
+    vs_uint32_t frame_num;
+    vs_size_s img_size = {0};
+    vs_vb_cfg_s vb_cfg = {0};
+    sample_vii_cfg_s vii_cfg = {0};
+    vs_int32_t vii_pipeid = 0;
+    vs_int32_t vii_chnid = 0;
+    vs_int32_t vpp_grpid = 0;
+    vs_int32_t vpp_chnid = 0;
+    vs_int32_t vo_devid = 0;
+    vs_int32_t vo_chnid = 0;
+    vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
+    vs_vpp_grp_attr_s vpp_grp_attr = {0};
+    vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
+    sample_vo_cfg_s vo_cfg = {0};
+
+    sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
+    sample_common_vii_sensor_pixel_format_get(sensor_id, &pixel_format);
+    frame_num = sample_common_vii_wdr_frame_num_get(sensor_id);
+    vb_cfg.pool_cnt = 1;
+    vb_cfg.ast_commpool[0].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, frame_num);
+#ifdef VS_ORION
+    vb_cfg.ast_commpool[0].blk_cnt = 15;
+#else
+    vb_cfg.ast_commpool[0].blk_cnt = 10;
+#endif
+    vb_cfg.ast_commpool[0].remap_mode = VB_REMAP_MODE_NONE;
+    ret = sample_common_sys_init(&vb_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit0;
+    }
+
+    ret = sample_common_dsp_init(0, (vs_char_t*)"/lib/firmware/vs_dsp0.bin");
+    if (ret != VS_SUCCESS) {
+        goto exit1;
+    }
+
+    vii_cfg.vii_vpp_mode = E_VII_OFFLINE_VPP_ONLINE;
+    vii_cfg.route_num = 1;
+    sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
+    vii_cfg.route_cfg[0].pipe_cfg[0].pipe_attr.compress_mode = E_COMPRESS_MODE_NONE;
+    sample_common_get_fpn_cfg(&vii_cfg.route_cfg[0].pipe_cfg[0], &g_fpn_frame_info);
+    ret = sample_common_vii_start(&vii_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit2;
+    }
+
+    ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+    if (ret != VS_SUCCESS) {
+        goto exit3;
+    }
+
+    sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    if (ret != VS_SUCCESS) {
+        goto exit4;
+    }
+
+    ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+    if (ret != VS_SUCCESS) {
+        goto exit5;
+    }
+
+    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
+    ret = sample_common_vo_start(&vo_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit6;
+    }
+
+
+    sample_common_pause();
+
+    sample_common_vo_stop(&vo_cfg);
+
+exit6:
+    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+exit5:
+    sample_common_vpp_stop(vpp_grpid, chn_enable);
+exit4:
+    sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+exit3:
+    sample_common_vii_stop(&vii_cfg);
+exit2:
+    sample_common_vii_pipe_release_fpn_frm_vb_blk(&g_fpn_frame_info);
+    sample_common_dsp_exit(0);
+exit1:
+    sample_common_sys_exit();
+exit0:
+    return ret;
+}
+
+vs_int32_t sample_vio_dual_pipe_case(vs_void_t)
+{
+    vs_int32_t ret;
+    vs_int32_t sensor_id = 0;
+    vs_pixel_format_e pixel_format;
+    vs_uint32_t frame_num;
+    vs_size_s img_size = {0};
+    vs_vb_cfg_s vb_cfg = {0};
+    sample_vii_cfg_s vii_cfg = {0};
+    vs_int32_t vii_pipeid[2] = {0, 1};
+    vs_int32_t vii_chnid = 0;
+    vs_int32_t vpp_grpid[2] = {0, 1};
+    vs_int32_t vpp_chnid = 0;
+    vs_int32_t vo_devid = 0;
+    vs_int32_t vo_chnid[2] = {0, 1};
+    vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
+    vs_vpp_grp_attr_s vpp_grp_attr = {0};
+    vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
+    sample_vo_cfg_s vo_cfg = {0};
+    vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
+    vs_int32_t sensor_framerate = 30;
+
+    sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
+    if (img_size.width >= 3840 || img_size.height >= 2160) {
+        printf("Notice: the case don't support this sensor type!\n");
+        return VS_FAILED;
+    }
+
+    frame_num = sample_common_vii_wdr_frame_num_get(sensor_id);
+    if (frame_num >= 3) {
+        printf("Notice: the case don't support this sensor type!\n");
+        return VS_FAILED;
+    }
+
+    sample_common_vii_sensor_framerate_get(sensor_id, &sensor_framerate);
+    if (sensor_framerate > 60) {
+        printf("Notice: the case don't support this sensor type!\n");
+        return VS_FAILED;
+    }
+
+    sample_common_vii_sensor_pixel_format_get(sensor_id, &pixel_format);
+    if (frame_num > 1) {
+        vb_cfg.pool_cnt = 2;
+        vb_cfg.ast_commpool[0].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, frame_num);
+#ifdef VS_ORION
+        vb_cfg.ast_commpool[0].blk_cnt = 9;
+#else
+        vb_cfg.ast_commpool[0].blk_cnt = 4;
+#endif
+        vb_cfg.ast_commpool[0].remap_mode = VB_REMAP_MODE_NONE;
+        vb_cfg.ast_commpool[1].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, 1);
+        vb_cfg.ast_commpool[1].blk_cnt = 10;
+        vb_cfg.ast_commpool[1].remap_mode = VB_REMAP_MODE_NONE;
+    } else {
+        vb_cfg.pool_cnt = 1;
+        vb_cfg.ast_commpool[0].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, frame_num);
+        vb_cfg.ast_commpool[0].blk_cnt = 18;
+        vb_cfg.ast_commpool[0].remap_mode = VB_REMAP_MODE_NONE;
+    }
+
+    ret = sample_common_sys_init(&vb_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit0;
+    }
+
+    vii_cfg.vii_vpp_mode = E_VII_OFFLINE_VPP_ONLINE;
+    vii_cfg.route_num = 1;
+    sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
+    vii_cfg.route_cfg[0].pipe_num = 2;
+    vii_cfg.route_cfg[0].pipe_id[0] = vii_pipeid[0];
+    vii_cfg.route_cfg[0].pipe_id[1] = vii_pipeid[1];
+    vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_NONE;
+    memcpy(&vii_cfg.route_cfg[0].pipe_cfg[1], &vii_cfg.route_cfg[0].pipe_cfg[0], sizeof(sample_vii_pipe_cfg_s));
+    vii_cfg.route_cfg[0].pipe_cfg[0].pipe_id = vii_pipeid[0];
+    vii_cfg.route_cfg[0].pipe_cfg[1].pipe_id = vii_pipeid[1];
+    vii_cfg.route_cfg[0].pipe_cfg[1].bus_id = -1;
+    vii_cfg.route_cfg[0].pipe_cfg[0].pipe_attr.compress_mode = E_COMPRESS_MODE_NONE;
+    vii_cfg.route_cfg[0].pipe_cfg[1].pipe_attr.compress_mode = E_COMPRESS_MODE_NONE;
+    vii_cfg.route_cfg[0].pipe_cfg[0].phys_chn_cfg[0].chn_attr.compress_mode = E_COMPRESS_MODE_RASTER;
+    vii_cfg.route_cfg[0].pipe_cfg[1].phys_chn_cfg[0].chn_attr.compress_mode = E_COMPRESS_MODE_RASTER;
+
+    ret = sample_common_vii_start(&vii_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit1;
+    }
+
+    ret = sample_common_vii_bind_vpp(vii_pipeid[0], vii_chnid, vpp_grpid[0]);
+    ret |= sample_common_vii_bind_vpp(vii_pipeid[1], vii_chnid, vpp_grpid[1]);
+    if (ret != VS_SUCCESS) {
+        goto exit2;
+    }
+
+    sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    ret = sample_common_vpp_start(vpp_grpid[0], chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    ret |= sample_common_vpp_start(vpp_grpid[1], chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    if (ret != VS_SUCCESS) {
+        goto exit3;
+    }
+
+    ret = sample_common_vpp_bind_vo(vpp_grpid[0], vpp_chnid, vo_devid, vo_chnid[0]);
+    ret |= sample_common_vpp_bind_vo(vpp_grpid[1], vpp_chnid, vo_devid, vo_chnid[1]);
+    if (ret != VS_SUCCESS) {
+        goto exit4;
+    }
+
+    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        ret = sample_common_dsp_init(0, name);
+        if (ret != VS_SUCCESS) {
+            goto exit5;
+        }
+    }
+
+    vo_cfg.vo_mode = E_VO_MODE_4MUX;
+    ret = sample_common_vo_start(&vo_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit5;
+    }
+
+    sample_common_pause();
+
+    sample_common_vo_stop(&vo_cfg);
+
+exit5:
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        sample_common_dsp_exit(0);
+    }
+    sample_common_vpp_unbind_vo(vpp_grpid[0], vpp_chnid, vo_devid, vo_chnid[0]);
+    sample_common_vpp_unbind_vo(vpp_grpid[1], vpp_chnid, vo_devid, vo_chnid[1]);
+exit4:
+    sample_common_vpp_stop(vpp_grpid[0], chn_enable);
+    sample_common_vpp_stop(vpp_grpid[1], chn_enable);
+exit3:
+    sample_common_vii_unbind_vpp(vii_pipeid[0], vii_chnid, vpp_grpid[0]);
+    sample_common_vii_unbind_vpp(vii_pipeid[1], vii_chnid, vpp_grpid[1]);
+exit2:
+    sample_common_vii_stop(&vii_cfg);
+exit1:
+    sample_common_sys_exit();
+exit0:
+    return ret;
+}
+
+static vs_int32_t sample_vio_set_ldc_rotation_cfg(vs_int32_t vii_pipeid, vs_int32_t vii_chnid)
+{
+    vs_int32_t ret;
+    vs_ldc_attr_s ldc_attr = {0};
+    vs_rotation_attr_s rotation_attr = {0};
+
+    ldc_attr.enable = VS_TRUE;
+    ldc_attr.mode = E_LDC_MODE_PANORAMIC;
+    ldc_attr.center_x_offset = 0;
+    ldc_attr.center_y_offset = 0;
+    ldc_attr.ratio = 1700;
+    ldc_attr.h_ratio = 1000;
+    ldc_attr.v_ratio = 1000;
+    ldc_attr.zoom = 1000;
+    ldc_attr.input_fov = 180 * 1000;
+    ldc_attr.diameter = 1080;
+    ldc_attr.fov_width = 90 * 1000;
+    ldc_attr.fov_height = 90 * 1000;
+    ldc_attr.ratio_keep = VS_TRUE;
+    ret = vs_mal_vii_chn_ldc_set(vii_pipeid, vii_chnid, &ldc_attr);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("vs_mal_vii_chn_ldc_set failed, ret: 0x%x\n", ret);
+        return VS_FAILED;
+    }
+
+    rotation_attr.enable = VS_TRUE;
+    rotation_attr.mode = E_ROTATION_MODE_FIXED;
+    rotation_attr.fixed_rotation = E_FIXED_ROTATION_180;
+    ret = vs_mal_vii_chn_rotation_set(vii_pipeid, vii_chnid, &rotation_attr);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("vs_mal_vii_chn_rotation_set failed, ret: 0x%x\n", ret);
+        return VS_FAILED;
+    }
+
+    return VS_SUCCESS;
+}
+
+vs_int32_t sample_vio_vii_ldc_rotation_case(vs_void_t)
+{
+    vs_int32_t ret;
+    vs_int32_t sensor_id = 0;
+    vs_pixel_format_e pixel_format;
+    vs_uint32_t frame_num;
+    vs_int32_t sensor_framerate;
+    vs_size_s img_size = {0};
+    vs_vb_cfg_s vb_cfg = {0};
+    sample_vii_cfg_s vii_cfg = {0};
+    vs_int32_t vii_pipeid = 0;
+    vs_int32_t vii_chnid = 0;
+    vs_int32_t vpp_grpid = 0;
+    vs_int32_t vpp_chnid = 0;
+    vs_int32_t vo_devid = 0;
+    vs_int32_t vo_chnid = 0;
+    vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
+    vs_vpp_grp_attr_s vpp_grp_attr = {0};
+    vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
+    sample_vo_cfg_s vo_cfg = {0};
+    vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
+
+    sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
+    sample_common_vii_sensor_framerate_get(sensor_id, &sensor_framerate);
+    sample_common_vii_sensor_pixel_format_get(sensor_id, &pixel_format);
+    frame_num = sample_common_vii_wdr_frame_num_get(sensor_id);
+    if (frame_num >= 2) {
+        printf("Notice: the case don't support wdr mode!\n");
+        return VS_FAILED;
+    }
+
+    if ((img_size.width >= 3840 || img_size.height >= 2160) && (sensor_framerate > 30)) {
+        printf("Notice: the case don't support this sensor type!\n");
+        return VS_FAILED;
+    }
+
+    vb_cfg.pool_cnt = 1;
+    vb_cfg.ast_commpool[0].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, frame_num);
+#ifdef VS_ORION
+    vb_cfg.ast_commpool[0].blk_cnt = 15;
+#else
+    vb_cfg.ast_commpool[0].blk_cnt = 10;
+#endif
+    if (sensor_framerate > 60) {
+        vb_cfg.ast_commpool[0].blk_cnt += 5;
+    }
+    vb_cfg.ast_commpool[0].remap_mode = VB_REMAP_MODE_NONE;
+    ret = sample_common_sys_init(&vb_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit0;
+    }
+
+    vii_cfg.vii_vpp_mode = E_VII_ONLINE_VPP_OFFLINE;
+    vii_cfg.route_num = 1;
+    sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
+    vii_cfg.route_cfg[0].pipe_cfg[0].phys_chn_cfg[0].chn_attr.compress_mode = E_COMPRESS_MODE_NONE;
+    ret = sample_common_vii_start(&vii_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit1;
+    }
+
+    ret = sample_vio_set_ldc_rotation_cfg(vii_pipeid, vii_chnid);
+    if (ret != VS_SUCCESS) {
+        goto exit2;
+    }
+
+    ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+    if (ret != VS_SUCCESS) {
+        goto exit2;
+    }
+
+    sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    if (ret != VS_SUCCESS) {
+        goto exit3;
+    }
+
+    ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+    if (ret != VS_SUCCESS) {
+        goto exit4;
+    }
+
+    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        ret = sample_common_dsp_init(0, name);
+        if (ret != VS_SUCCESS) {
+            goto exit5;
+        }
+    }
+
+    ret = sample_common_vo_start(&vo_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit5;
+    }
+
+    sample_common_pause();
+
+    sample_common_vo_stop(&vo_cfg);
+
+exit5:
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        sample_common_dsp_exit(0);
+    }
+    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+exit4:
+    sample_common_vpp_stop(vpp_grpid, chn_enable);
+exit3:
+    sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+exit2:
+    sample_common_vii_stop(&vii_cfg);
+exit1:
+    sample_common_sys_exit();
+exit0:
+    return ret;
+}
+
+vs_int32_t sample_vio_linear_wdr_switch_case(vs_void_t)
+{
+    vs_int32_t ret;
+    vs_int32_t sensor_id = 0;
+    vs_pixel_format_e pixel_format;
+    vs_size_s img_size = {0};
+    vs_size_s new_img_size = {0};
+    vs_vb_cfg_s vb_cfg = {0};
+    sample_vii_cfg_s vii_cfg = {0};
+    vs_int32_t vii_pipeid = 0;
+    vs_int32_t vii_chnid = 0;
+    vs_int32_t vpp_grpid = 0;
+    vs_int32_t vpp_chnid = 0;
+    vs_int32_t vo_devid = 0;
+    vs_int32_t vo_chnid = 0;
+    vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
+    vs_vpp_grp_attr_s vpp_grp_attr = {0};
+    vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
+    sample_vo_cfg_s vo_cfg = {0};
+    vs_uint32_t switch_cnt = 0;
+    vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
+
+    sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
+    sample_common_vii_sensor_pixel_format_get(sensor_id, &pixel_format);
+    vb_cfg.pool_cnt = 2;
+    vb_cfg.ast_commpool[0].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, 3);
+    vb_cfg.ast_commpool[0].blk_cnt = 4;
+    vb_cfg.ast_commpool[0].remap_mode = VB_REMAP_MODE_NONE;
+    vb_cfg.ast_commpool[1].blk_size = sample_common_buffer_size_get(&img_size, pixel_format, E_COMPRESS_MODE_NONE, 1);
+#ifdef VS_ORION
+    vb_cfg.ast_commpool[1].blk_cnt = 12;
+#else
+    vb_cfg.ast_commpool[1].blk_cnt = 7;
+#endif
+    vb_cfg.ast_commpool[1].remap_mode = VB_REMAP_MODE_NONE;
+    ret = sample_common_sys_init(&vb_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit0;
+    }
+
+    vii_cfg.vii_vpp_mode = E_VII_OFFLINE_VPP_ONLINE;
+    vii_cfg.route_num = 1;
+    sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
+    vii_cfg.route_cfg[0].pipe_cfg[0].pipe_attr.compress_mode = E_COMPRESS_MODE_NONE;
+    vii_cfg.route_cfg[0].pipe_cfg[0].phys_chn_cfg[0].chn_attr.compress_mode = E_COMPRESS_MODE_RASTER;
+
+    char sensor_name[128];
+    sample_common_vii_sensor_name_get(g_sensor_type[0], sensor_name);
+    vs_uint32_t wdr_frame_num = sample_common_vii_wdr_frame_num_get_by_sensor(g_sensor_type[0]);
+    if (((strcmp(sensor_name, "os04a10") == 0 || strcmp(sensor_name, "imx347") == 0)) && (wdr_frame_num > 1)) {
+        vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_SUB_FRAME_FIRST;
+        vs_sample_trace("advanced mode wdr_frame_num %d \n", wdr_frame_num);
+    } else {
+        vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_NONE;
+    }
+
+    ret = sample_common_vii_start(&vii_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit1;
+    }
+
+    ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+    if (ret != VS_SUCCESS) {
+        goto exit2;
+    }
+
+    sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    if (ret != VS_SUCCESS) {
+        goto exit3;
+    }
+
+    ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+    if (ret != VS_SUCCESS) {
+        goto exit4;
+    }
+
+    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        ret = sample_common_dsp_init(0, name);
+        if (ret != VS_SUCCESS) {
+            goto exit5;
+        }
+    }
+
+    ret = sample_common_vo_start(&vo_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit5;
+    }
+
+    while(g_stop_flag == 0 && switch_cnt < 3){
+        switch_cnt++;
+        usleep(5000000);
+        vs_sample_trace("printf input enter switch wdr mode: cur wdr mode %d\n", wdr_frame_num);
+        while (g_stop_flag == 0) {
+            if (getchar() == '\n') {
+                break;
+            }
+            usleep(1000);
+        };
+
+        if (g_stop_flag == 1) {
+            break;
+        }
+        vs_uint32_t new_wdr_frame_num = wdr_frame_num;
+        char new_sensor_name[128];
+        vs_uint32_t i;
+        vs_int32_t sensor_framerate;
+        for (i = 0; i < sample_common_vii_sensor_type_num_get(); i++) {
+            sample_common_vii_sensor_name_get(i, new_sensor_name);
+            if (strcmp(sensor_name, new_sensor_name) != 0) {
+                continue;
+            }
+            sample_common_vii_img_size_get(i, &new_img_size);
+            if (new_img_size.width != img_size.width || new_img_size.height != img_size.height){
+                continue;
+            }
+
+            sample_common_vii_framerate_get(i, &sensor_framerate);
+            if ((new_img_size.width >= 3840 || new_img_size.height >= 2160) && (sensor_framerate > 30)) {
+                continue;
+            }
+
+            new_wdr_frame_num = sample_common_vii_wdr_frame_num_get_by_sensor(i);
+            if (new_wdr_frame_num != wdr_frame_num) {
+                break;
+            }
+        }
+
+        if (i < sample_common_vii_sensor_type_num_get()){
+            vs_sample_trace("wdr mode change %d ----> %d\n", wdr_frame_num, new_wdr_frame_num);
+            g_sensor_type[0] = i;
+        } else {
+            vs_sample_trace("sensor %s only support %d\n", sensor_name, wdr_frame_num);
+            break;
+        }
+
+        vii_cfg.route_cfg[0].pipe_cfg[0].firmware_bypass = VS_TRUE;
+        sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+        sample_common_vii_stop(&vii_cfg);
+
+        vs_sample_trace("dreset sensor\n");
+        vs_mal_mipi_rx_sensor_reset(0);
+        // os04a10 needs at least 2ms to reset
+        usleep(4 * 1000);
+        vs_mal_mipi_rx_sensor_unreset(0);
+        vs_sample_trace("reset sensor -done\n");
+
+        sample_common_vii_sensor_name_get(g_sensor_type[0], sensor_name);
+        wdr_frame_num = sample_common_vii_wdr_frame_num_get_by_sensor(g_sensor_type[0]);
+        sample_common_vii_img_size_get(g_sensor_type[0], &img_size);
+        sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
+        vii_cfg.route_cfg[0].pipe_cfg[0].firmware_bypass = VS_TRUE;
+        vs_sample_trace("pixel_format %d \n", vii_cfg.route_cfg[0].pipe_cfg->pipe_attr.pixel_format);
+        if (((strcmp(sensor_name, "os04a10") == 0 || strcmp(sensor_name, "imx347") == 0)) && (wdr_frame_num > 1)) {
+            vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_SUB_FRAME_FIRST;
+        } else {
+            vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_NONE;
+        }
+
+        ret = sample_common_vii_start(&vii_cfg);
+        ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+
+        vs_mal_isp_comm_attr_set(vii_pipeid, &vii_cfg.route_cfg[0].pipe_cfg[0].isp_attr);
+        vii_cfg.route_cfg[0].pipe_cfg[0].firmware_bypass = VS_FALSE;
+
+        vs_isp_ae_attr_s ae_attr;
+        vs_isp_wdr_exp_attr_s wdr_exp_attr;
+        vs_mal_isp_ae_attr_get(vii_pipeid, &ae_attr);
+        vs_mal_isp_ae_attr_set(vii_pipeid, &ae_attr);
+        vs_mal_isp_wdr_exp_attr_get(vii_pipeid, &wdr_exp_attr);
+        vs_mal_isp_wdr_exp_attr_set(vii_pipeid, &wdr_exp_attr);
+    }
+
+    sample_common_vo_stop(&vo_cfg);
+
+exit5:
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        sample_common_dsp_exit(0);
+    }
+    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+exit4:
+    sample_common_vpp_stop(vpp_grpid, chn_enable);
+exit3:
+    sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+exit2:
+    sample_common_vii_stop(&vii_cfg);
+exit1:
+    sample_common_sys_exit();
+exit0:
+    return ret;
+}
+
+vs_int32_t sample_vio_resolution_switch_case(vs_void_t)
+{
+    vs_int32_t ret;
+    vs_int32_t sensor_id = 0;
+    vs_pixel_format_e pixel_format;
+    vs_size_s img_size = {0};
+    vs_size_s new_img_size = {0};
+    vs_vb_cfg_s vb_cfg = {0};
+    sample_vii_cfg_s vii_cfg = {0};
+    vs_int32_t vii_pipeid = 0;
+    vs_int32_t vii_chnid = 0;
+    vs_int32_t vpp_grpid = 0;
+    vs_int32_t vpp_chnid = 0;
+    vs_int32_t vo_devid = 0;
+    vs_int32_t vo_chnid = 0;
+    vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
+    vs_vpp_grp_attr_s vpp_grp_attr = {0};
+    vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
+    sample_vo_cfg_s vo_cfg = {0};
+    vs_uint32_t switch_cnt = 0;
+    vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
+    vs_uint32_t i;
+    vs_uint32_t wdr_frame_num, new_wdr_frame_num;
+    char new_sensor_name[128];
+    char sensor_name[128];
+    vs_uint64_t max_blk_size = 0, blk_size = 0;
+    vs_int32_t max_framerate = 0, framerate = 0;
+
+    if (SONY_IMX586_MIPI_48M_1FPS_10BIT == g_sensor_type[0] || SONY_IMX586_MIPI_48M_3FPS_10BIT == g_sensor_type[0]) {
+        vs_sample_trace("not support sensor_type %d\n", g_sensor_type[0]);
+        return VS_FAILED;
+    }
+
+    wdr_frame_num = sample_common_vii_wdr_frame_num_get_by_sensor(g_sensor_type[0]);
+    sample_common_vii_sensor_name_get(g_sensor_type[0], sensor_name);
+    sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
+    sample_common_vii_sensor_pixel_format_get(sensor_id, &pixel_format);
+    for (i = 0; i < sample_common_vii_sensor_type_num_get(); i++) {
+        if (SONY_IMX586_MIPI_48M_1FPS_10BIT == i || SONY_IMX586_MIPI_48M_3FPS_10BIT == i) {
+            continue;
+        }
+
+        sample_common_vii_sensor_name_get(i, new_sensor_name);
+        if (strcmp(sensor_name, new_sensor_name) != 0) {
+            continue;
+        }
+
+        new_wdr_frame_num = sample_common_vii_wdr_frame_num_get_by_sensor(i);
+        if (new_wdr_frame_num != wdr_frame_num) {
+            continue;
+        }
+
+        sample_common_vii_img_size_get(i, &new_img_size);
+        blk_size = sample_common_buffer_size_get(&new_img_size, pixel_format, E_COMPRESS_MODE_NONE, wdr_frame_num);
+        max_blk_size = (blk_size > max_blk_size) ? blk_size : max_blk_size;
+        sample_common_vii_framerate_get(i, &framerate);
+        max_framerate = (framerate > max_framerate) ? framerate : max_framerate;
+    }
+
+    vb_cfg.pool_cnt = 1;
+    vb_cfg.ast_commpool[0].blk_size = max_blk_size;
+    vb_cfg.ast_commpool[0].blk_cnt = 10;
+#ifdef VS_ORION
+    vb_cfg.ast_commpool[0].blk_cnt += 5;
+#endif
+    if (max_framerate > 60) {
+        vb_cfg.ast_commpool[0].blk_cnt += 5;
+    }
+    vb_cfg.ast_commpool[0].remap_mode = VB_REMAP_MODE_NONE;
+    ret = sample_common_sys_init(&vb_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit0;
+    }
+
+    vii_cfg.vii_vpp_mode = E_VII_OFFLINE_VPP_ONLINE;
+    vii_cfg.route_num = 1;
+    sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
+    vii_cfg.route_cfg[0].pipe_cfg[0].pipe_attr.compress_mode = E_COMPRESS_MODE_NONE;
+    vii_cfg.route_cfg[0].pipe_cfg[0].phys_chn_cfg[0].chn_attr.compress_mode = E_COMPRESS_MODE_RASTER;
+
+    if (((strcmp(sensor_name, "os04a10") == 0 || strcmp(sensor_name, "imx347") == 0)) && (wdr_frame_num > 1)) {
+        vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_SUB_FRAME_FIRST;
+        vs_sample_trace("advanced mode wdr_frame_num %d \n", wdr_frame_num);
+    } else {
+        vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_NONE;
+    }
+
+    ret = sample_common_vii_start(&vii_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit1;
+    }
+
+    ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+    if (ret != VS_SUCCESS) {
+        goto exit2;
+    }
+
+    sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    vpp_chn_attr[vpp_chnid].compress_mode = E_COMPRESS_MODE_NONE;
+    ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
+    if (ret != VS_SUCCESS) {
+        goto exit3;
+    }
+
+    ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+    if (ret != VS_SUCCESS) {
+        goto exit4;
+    }
+
+    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        ret = sample_common_dsp_init(0, name);
+        if (ret != VS_SUCCESS) {
+            goto exit5;
+        }
+    }
+
+    ret = sample_common_vo_start(&vo_cfg);
+    if (ret != VS_SUCCESS) {
+        goto exit5;
+    }
+
+    while(g_stop_flag == 0 && switch_cnt < 3){
+        switch_cnt++;
+        usleep(2000000);
+        vs_sample_trace("please input enter switch resultion\n");
+        while (g_stop_flag == 0) {
+            if (getchar() == '\n') {
+                break;
+            }
+            usleep(1000);
+        };
+
+        if (g_stop_flag == 1) {
+            break;
+        }
+        vs_uint32_t new_wdr_frame_num = wdr_frame_num;
+        char new_sensor_name[128];
+        vs_uint32_t i;
+        vs_int32_t sensor_framerate;
+        for (i = 0; i < sample_common_vii_sensor_type_num_get(); i++) {
+            if (SONY_IMX586_MIPI_48M_1FPS_10BIT == i || SONY_IMX586_MIPI_48M_3FPS_10BIT == i) {
+                continue;
+            }
+
+            sample_common_vii_sensor_name_get(i, new_sensor_name);
+            if (strcmp(sensor_name, new_sensor_name) != 0) {
+                continue;
+            }
+
+            new_wdr_frame_num = sample_common_vii_wdr_frame_num_get_by_sensor(i);
+            if (new_wdr_frame_num != wdr_frame_num) {
+                continue;
+            }
+
+            sample_common_vii_img_size_get(i, &new_img_size);
+            sample_common_vii_framerate_get(i, &sensor_framerate);
+            if ((new_img_size.width >= 3840 || new_img_size.height >= 2160) && (sensor_framerate > 30)) {
+                continue;
+            }
+
+            if (new_img_size.width != img_size.width || new_img_size.height != img_size.height){
+                break;
+            }
+        }
+
+        if (i < sample_common_vii_sensor_type_num_get()){
+            vs_sample_trace("resolution change [%d %d]----> [%d %d]\n", img_size.width, img_size.height,
+                new_img_size.width, new_img_size.height);
+            g_sensor_type[0] = i;
+        } else {
+            vs_sample_trace("sensor %s only support %d\n", sensor_name, g_sensor_type[0]);
+            break;
+        }
+
+        vii_cfg.route_cfg[0].pipe_cfg[0].firmware_bypass = VS_TRUE;
+        sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+        sample_common_vpp_stop(vpp_grpid, chn_enable);
+        vs_sample_trace("vpp stop done\n");
+        sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+        sample_common_vii_stop(&vii_cfg);
+        sample_common_vo_stop(&vo_cfg);
+
+        vs_sample_trace("reset sensor\n");
+        vs_mal_mipi_rx_sensor_reset(0);
+        usleep(500);
+        vs_mal_mipi_rx_sensor_unreset(0);
+        vs_mal_vii_module_reset();
+        vs_sample_trace("reset sensor -done\n");
+
+        sample_common_vii_sensor_name_get(g_sensor_type[0], sensor_name);
+        wdr_frame_num = sample_common_vii_wdr_frame_num_get_by_sensor(g_sensor_type[0]);
+        sample_common_vii_img_size_get(g_sensor_type[0], &img_size);
+        sample_common_vii_default_cfg_get(sensor_id, &vii_cfg.route_cfg[0]);
+
+        vii_cfg.route_cfg[0].pipe_cfg[0].firmware_bypass = VS_TRUE;
+        if (((strcmp(sensor_name, "os04a10") == 0 || strcmp(sensor_name, "imx347") == 0)) && (wdr_frame_num > 1)) {
+            vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_SUB_FRAME_FIRST;
+        } else {
+            vii_cfg.route_cfg[0].pipe_cfg[0].pipe_param.mode = E_VII_PIPE_ADVANCE_MODE_NONE;
+        }
+
+        ret = sample_common_vii_start(&vii_cfg);
+        ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+        sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
+        sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+        vpp_chn_attr[vpp_chnid].compress_mode = E_COMPRESS_MODE_NONE;
+        ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
+        ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+
+        sample_vio_get_vo_cfg(&img_size, &vo_cfg);
+        if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+            ret = sample_common_dsp_init(0, name);
+            if (ret != VS_SUCCESS) {
+                goto exit5;
+            }
+        }
+
+        ret = sample_common_vo_start(&vo_cfg);
+        if (ret != VS_SUCCESS) {
+            goto exit5;
+        }
+
+        vs_mal_isp_comm_attr_set(vii_pipeid, &vii_cfg.route_cfg[0].pipe_cfg[0].isp_attr);
+        vii_cfg.route_cfg[0].pipe_cfg[0].firmware_bypass = VS_FALSE;
+
+        vs_isp_ae_attr_s ae_attr;
+        vs_isp_wdr_exp_attr_s wdr_exp_attr;
+        vs_mal_isp_ae_attr_get(vii_pipeid, &ae_attr);
+        vs_mal_isp_ae_attr_set(vii_pipeid, &ae_attr);
+        vs_mal_isp_wdr_exp_attr_get(vii_pipeid, &wdr_exp_attr);
+        vs_mal_isp_wdr_exp_attr_set(vii_pipeid, &wdr_exp_attr);
+    }
+
+    sample_common_vo_stop(&vo_cfg);
+
+exit5:
+    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        sample_common_dsp_exit(0);
+    }
+    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+exit4:
+    sample_common_vpp_stop(vpp_grpid, chn_enable);
+exit3:
+    sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
+exit2:
+    sample_common_vii_stop(&vii_cfg);
+exit1:
+    sample_common_sys_exit();
+exit0:
+    return ret;
+}
+
+vs_void_t sample_vio_usage(char *prog_name)
+{
+    vs_uint32_t i;
+    vs_int32_t sensor_type_num = sample_common_vii_sensor_type_num_get();
+#ifdef VS_ORION
+    printf("Usage : %s <index> <sensor_type> [i2c_bus_id] [mipi_tx_board_type]\n", prog_name);
+#else
+    printf("Usage : %s <index> <sensor_type> [i2c_bus_id]\n", prog_name);
+#endif
+    printf("index:\n");
+    printf("\t 0) vii(online)  --> vpp(online)  --> vo.\n");
+    printf("\t 1) vii(online)  --> vpp(offline) --> vo.\n");
+    printf("\t 2) vii(offline) --> vpp(online)  --> vo.\n");
+    printf("\t 3) vii(offline) FPN --> vpp(online) --> vo.\n");
+    printf("\t 4) dual pipe case, vii pipe0 & pipe1 --> vpp --> vo.\n");
+    printf("\t 5) vii(online) LDC & Rotation --> vpp(offline) --> vo.\n");
+    printf("\t 6) linear wdr mode switch --> vo.\n");
+    printf("\t 7) resolution switch --> vo.\n");
+    printf("sensor_type:\n");
+    for (i = 0; i < sensor_type_num; i++) {
+        printf("\t %d) %s.\n", i, sample_common_sensor_type_name_get(i));
+    }
+    printf("I2C Bus ID:\n");
+    printf("\t 1(default), i2c id based on board.\n");
+#ifdef VS_ORION
+    printf("MIPI TX Board Type(0 for default):\n");
+    for (i = 0; i < MIPITX_BOARD_TYPE_MAX; i++) {
+        printf("\t %d) %s.\n", i, sample_common_mipitx_board_type_get(i));
+    }
+#endif
+}
+
+static vs_void_t sample_vio_register_signal_handler(void (*sig_handler)(int))
 {
     struct sigaction sa;
     memset(&sa, 0, sizeof(struct sigaction));
@@ -537,27 +1174,70 @@ static vs_void_t sample_venc_register_signal_handler(void (*sig_handler)(int))
     sigaction(SIGTERM, &sa, NULL);
 }
 
-vs_void_t venc_signal_handle(vs_int32_t s_no)
+vs_void_t vii_signal_handle(vs_int32_t s_no)
 {
-    printf("received signal %d\n", s_no);
-    g_stop_flag = 1;
+    if (s_no == SIGINT || s_no == SIGTERM) {
+        g_stop_flag = 1;
+    }
 }
 
-vs_int32_t main(vs_int32_t argc, char* argv[])
+int main(int argc, char *argv[])
 {
     vs_int32_t ret = VS_SUCCESS;
+    vs_int32_t case_idx;
 
-    if (argc > 1 && strstr(argv[argc - 1], "-h"))
-    {
-        sample_venc_main_usage(argv[0]);
-        sample_venc_sensor_type_usage();
+    if (argc <= 2) {
+        sample_vio_usage(argv[0]);
         return VS_FAILED;
     }
 
-    sample_venc_register_signal_handler(venc_signal_handle);
+    if (!strncmp(argv[1], "-h", 2)) {
+        sample_vio_usage(argv[0]);
+        return VS_FAILED;
+    }
 
-    vs_sample_trace("sample_venc_videostrm mode (fixed).\n");
-    ret = sample_venc_videostrm(argc, argv);
+    sample_vio_register_signal_handler(vii_signal_handle);
+
+    case_idx = atoi(argv[1]);
+    g_sensor_type[0] = atoi(argv[2]);
+
+    if (argc > 3) {
+        g_bus_id[0] = atoi(argv[3]);
+    }
+
+    if (argc > 4) {
+        mipitx_board_setting_get(argv[4]);
+    }
+
+    switch (case_idx) {
+        case 0:
+            ret = sample_vio_vii_online_vpp_online_case();
+            break;
+        case 1:
+            ret = sample_vio_vii_online_vpp_offline_case();
+            break;
+        case 2:
+            ret = sample_vio_vii_offline_vpp_online_case();
+            break;
+        case 3:
+            ret = sample_vio_fpn_case();
+            break;
+        case 4:
+            ret = sample_vio_dual_pipe_case();
+            break;
+        case 5:
+            ret = sample_vio_vii_ldc_rotation_case();
+            break;
+        case 6:
+            ret = sample_vio_linear_wdr_switch_case();
+            break;
+        case 7:
+            ret = sample_vio_resolution_switch_case();
+            break;
+        default:
+            sample_vio_usage(argv[0]);
+            return VS_FAILED;
+    }
 
     return ret;
 }

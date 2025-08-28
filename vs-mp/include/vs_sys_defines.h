@@ -64,6 +64,11 @@ typedef struct vs_uuid {
     vs_uint32_t id[SYS_UUID_NUM];
 } vs_uuid_s;
 
+typedef struct vs_sys_mod_list {
+    vs_uint32_t num;
+    vs_mod_id_e mod[SYS_MAX_MOD_NUM];
+} vs_sys_mod_list_s;
+
 
 #ifdef __cplusplus
 }

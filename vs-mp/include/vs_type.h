@@ -30,7 +30,7 @@ typedef void            vs_void_t;
 typedef unsigned long   vs_ulong_t;
 typedef long            vs_long_t;
 typedef unsigned long	vs_size_t;
-typedef __s8            vs_char_t;
+typedef char            vs_char_t;
 
 typedef enum {
 	VS_FALSE = 0,
