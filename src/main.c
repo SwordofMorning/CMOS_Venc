@@ -45,8 +45,8 @@ static vs_void_t sample_vii_get_vpp_grp_attr(vs_size_s *img_size, vs_vpp_grp_att
 static vs_void_t sample_vii_get_vpp_chn_attr(vs_size_s *img_size, vs_vpp_chn_attr_s *chn_attr)
 {
     chn_attr->chn_mode = E_VPP_CHN_MODE_USER;
-    chn_attr->width = img_size->width;
-    chn_attr->height = img_size->height;
+    chn_attr->width = 1280;
+    chn_attr->height = 960;
     chn_attr->video_format = E_VIDEO_FORMAT_LINEAR;
     chn_attr->pixel_format = E_PIXEL_FORMAT_YUV_420SP;
     chn_attr->dynamic_range = E_DYNAMIC_RANGE_SDR8;
@@ -64,21 +64,22 @@ static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_
     vo_cfg->vo_devid = 0;
     vo_cfg->vo_layerid = 0;
 
-    vo_cfg->vo_intf_type = E_VO_INTERFACE_TYPE_HDMI;
-    vo_cfg->vo_output = E_VO_OUTPUT_TYPE_1080P60;
+    // 强制使用MIPI-DSI接口和用户自定义输出
+    vo_cfg->vo_intf_type = E_VO_INTERFACE_TYPE_MIPI;
+    vo_cfg->vo_output = E_VO_OUTPUT_TYPE_USER;
     vo_cfg->bg_color = 0;
     vo_cfg->dynamic_range = E_DYNAMIC_RANGE_SDR8;
     vo_cfg->pixel_format = E_PIXEL_FORMAT_YUV_420SP;
     vo_cfg->vo_mode = E_VO_MODE_1MUX;
-    vo_cfg->img_width = 1920;
-    vo_cfg->img_height = 1080;
+    
+    // 设置为1280x960分辨率
+    vo_cfg->img_width = 1280;
+    vo_cfg->img_height = 960;
     vo_cfg->enable = VS_TRUE;
     vo_cfg->zorder = 0;
 
-#ifdef VS_ORION
-    vo_cfg->vo_intf_type = E_VO_INTERFACE_TYPE_MIPI;
-    vo_cfg->vo_output = E_VO_OUTPUT_TYPE_USER;
-#endif
+    // 设置MIPI PHY速率
+    vo_cfg->mipitx_phy_rate = 1000; // 1Gbps
 }
 
 static vs_void_t  sample_vio_get_venc_cfg(vs_int32_t sensor_id, sample_venc_cfg_s *sample_venc_cfg,

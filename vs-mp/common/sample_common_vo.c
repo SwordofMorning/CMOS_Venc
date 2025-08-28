@@ -366,19 +366,20 @@ void sample_common_vo_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
 {
     /* user defined vo timing, especially used when the interface is mipi-tx(1080*1920P60) */
     attr->interface_output = E_VO_OUTPUT_TYPE_USER;
-    attr->timing_info.hactive = 1080;
-    attr->timing_info.hfp = 72;
-    attr->timing_info.hbp = 16;
-    attr->timing_info.hpw = 8;
+    attr->timing_info.hactive = 1280;
+    attr->timing_info.hfp = 63;
+    attr->timing_info.hbp = 13;
+    attr->timing_info.hpw = 9;
     attr->timing_info.hsync_polarity = 1;
-    attr->timing_info.vactive = 1920;
-    attr->timing_info.vfp = 15;
+    attr->timing_info.vactive = 960;
+    attr->timing_info.vfp = 18;
     attr->timing_info.vbp = 8;
-    attr->timing_info.vpw = 2;
+    attr->timing_info.vpw = 4;
     attr->timing_info.vsync_polarity = 1;
     attr->timing_info.data_polarity = 1;
     attr->timing_info.interlaced_output = 0;
-    clk->pixel_clk_rate = 137239000UL;
+    // pixel_clk_rate = 1365 × 990 × 60 = 81,081,000 Hz
+    clk->pixel_clk_rate = 81081000UL;
     clk->clk_div = 8;
 }
 
