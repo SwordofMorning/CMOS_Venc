@@ -25,6 +25,7 @@
 
 #include "sample_common.h"
 #include "vs_mal_vii.h"
+#include "vs_mal_vpp.h"
 
 static sample_fpn_frame_info_s g_fpn_frame_info;
 static volatile sig_atomic_t g_stop_flag = 0;
@@ -45,10 +46,12 @@ static vs_void_t sample_vii_get_vpp_grp_attr(vs_size_s *img_size, vs_vpp_grp_att
 static vs_void_t sample_vii_get_vpp_chn_attr(vs_size_s *img_size, vs_vpp_chn_attr_s *chn_attr)
 {
     chn_attr->chn_mode = E_VPP_CHN_MODE_USER;
-    chn_attr->width = 1280;
-    chn_attr->height = 960;
+    // 关键修改：先设置为输入分辨率，裁剪在后面单独配置
+    chn_attr->width = img_size->width;     // 1280 (输入分辨率)
+    chn_attr->height = img_size->height;   // 1024 (输入分辨率)
     chn_attr->video_format = E_VIDEO_FORMAT_LINEAR;
-    chn_attr->pixel_format = E_PIXEL_FORMAT_YUV_420SP;
+    // 关键修改：确保像素格式匹配
+    chn_attr->pixel_format = E_PIXEL_FORMAT_YVU_420SP;  // 与grp_attr保持一致
     chn_attr->dynamic_range = E_DYNAMIC_RANGE_SDR8;
     chn_attr->compress_mode = E_COMPRESS_MODE_NONE;
     chn_attr->framerate.src_framerate = -1;
@@ -57,6 +60,34 @@ static vs_void_t sample_vii_get_vpp_chn_attr(vs_size_s *img_size, vs_vpp_chn_att
     chn_attr->flip_enable = VS_FALSE;
     chn_attr->depth = 0;
     chn_attr->aspect_ratio.mode = E_ASPECT_RATIO_MODE_NONE;
+    
+    vs_sample_trace("VPP chn config: %dx%d, format=%d\n", 
+                    chn_attr->width, chn_attr->height, chn_attr->pixel_format);
+}
+
+static vs_int32_t sample_vpp_crop_config(vs_int32_t vpp_grpid, vs_int32_t vpp_chnid)
+{
+    vs_int32_t ret;
+    vs_vpp_crop_info_s crop_info = {0};
+    
+    crop_info.enable = VS_TRUE;
+    crop_info.coordinate_mode = E_COORDINATE_MODE_ABSOLUTE;
+    crop_info.rect.x = 0;
+    crop_info.rect.y = 32;          // 关键修改：从上下各裁剪32行，保持居中
+    crop_info.rect.width = 1280;    // 保持宽度
+    crop_info.rect.height = 960;    // 裁剪高度：1024-64=960
+    
+    ret = vs_mal_vpp_chn_crop_set(vpp_grpid, vpp_chnid, &crop_info);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("vs_mal_vpp_chn_crop_set failed, ret: 0x%x\n", ret);
+        return VS_FAILED;
+    }
+    
+    vs_sample_trace("VPP crop configured: input=%dx%d, crop_rect=(%d,%d,%dx%d)\n", 
+                    1280, 1024, crop_info.rect.x, crop_info.rect.y, 
+                    crop_info.rect.width, crop_info.rect.height);
+    
+    return VS_SUCCESS;
 }
 
 static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_cfg)
@@ -64,22 +95,24 @@ static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_
     vo_cfg->vo_devid = 0;
     vo_cfg->vo_layerid = 0;
 
-    // 强制使用MIPI-DSI接口和用户自定义输出
     vo_cfg->vo_intf_type = E_VO_INTERFACE_TYPE_MIPI;
     vo_cfg->vo_output = E_VO_OUTPUT_TYPE_USER;
     vo_cfg->bg_color = 0;
     vo_cfg->dynamic_range = E_DYNAMIC_RANGE_SDR8;
-    vo_cfg->pixel_format = E_PIXEL_FORMAT_YUV_420SP;
+    // 关键修改：确保像素格式匹配
+    vo_cfg->pixel_format = E_PIXEL_FORMAT_YVU_420SP;  // 与VPP输出格式一致
     vo_cfg->vo_mode = E_VO_MODE_1MUX;
     
-    // 设置为1280x960分辨率
+    // 设置为裁剪后的分辨率
     vo_cfg->img_width = 1280;
     vo_cfg->img_height = 960;
     vo_cfg->enable = VS_TRUE;
     vo_cfg->zorder = 0;
-
-    // 设置MIPI PHY速率
-    vo_cfg->mipitx_phy_rate = 1000; // 1Gbps
+    vo_cfg->mipitx_phy_rate = 1000;
+    
+    vs_sample_trace("VO config: %dx%d, format=%d, intf=%d\n", 
+                    vo_cfg->img_width, vo_cfg->img_height, 
+                    vo_cfg->pixel_format, vo_cfg->vo_intf_type);
 }
 
 static vs_void_t  sample_vio_get_venc_cfg(vs_int32_t sensor_id, sample_venc_cfg_s *sample_venc_cfg,
@@ -236,33 +269,53 @@ vs_int32_t sample_vio_vii_vpp_venc_vo_case(vs_vii_vpp_mode_e vii_vpp_mode)
         goto exit3;
     }
 
-    ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+    // 关键修改：在VPP启动后立即配置裁剪，在绑定VO之前
+    ret = sample_vpp_crop_config(vpp_grpid, vpp_chnid);
     if (ret != VS_SUCCESS) {
+        vs_sample_trace("sample_vpp_crop_config failed\n");
         goto exit4;
     }
 
-    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
+    // 添加延时确保裁剪配置生效
+    usleep(100000);  // 100ms延时
+
+    // 获取VO配置时使用裁剪后的尺寸
+    vs_size_s vpp_output_size = {1280, 960};
+    sample_vio_get_vo_cfg(&vpp_output_size, &vo_cfg);
+
+    // 先启动VO
     if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         ret = sample_common_dsp_init(0, name);
         if (ret != VS_SUCCESS) {
-            goto exit5;
+            goto exit4;
         }
     }
 
     ret = sample_common_vo_start(&vo_cfg);
     if (ret != VS_SUCCESS) {
+        vs_sample_trace("sample_common_vo_start failed, ret: 0x%x\n", ret);
         goto exit5;
     }
 
+    // 最后进行VPP-VO绑定
+    ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+    if (ret != VS_SUCCESS) {
+        vs_sample_trace("VPP-VO bind failed, ret=0x%x\n", ret);
+        goto exit6;
+    }
+
+    vs_sample_trace("VPP-VO bind success!\n");
+
     sample_common_pause();
 
+    // 清理部分
+    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+exit6:
     sample_common_vo_stop(&vo_cfg);
-
 exit5:
     if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         sample_common_dsp_exit(0);
     }
-    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
 exit4:
     sample_common_vpp_stop(vpp_grpid, chn_enable);
 exit3:
