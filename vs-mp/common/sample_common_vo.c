@@ -723,7 +723,8 @@ static vs_void_t sample_common_vo_layer_image_size_get(sample_vo_cfg_s* p_vo_con
         /* for some sample, may have rotated, and changed img width and height */
         if (p_vo_config->img_width > p_vo_config->img_height) {
             vs_sample_trace("display%d layer%d mipi intf need rotation\n", p_vo_config->vo_devid, p_vo_config->vo_layerid);
-            p_vo_config->rotation_enable = VS_TRUE;
+            // p_vo_config->rotation_enable = VS_TRUE;
+            p_vo_config->rotation_enable = VS_FALSE;
             tmp.height = p_vo_config->img_height;
             p_vo_config->img_height = p_vo_config->img_width;
             p_vo_config->img_width  = tmp.height;

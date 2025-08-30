@@ -109,6 +109,7 @@ static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_
     vo_cfg->enable = VS_TRUE;
     vo_cfg->zorder = 0;
     vo_cfg->mipitx_phy_rate = 1000;
+    vo_cfg->rotation_enable = VS_FALSE;
     
     vs_sample_trace("VO config: %dx%d, format=%d, intf=%d\n", 
                     vo_cfg->img_width, vo_cfg->img_height, 
