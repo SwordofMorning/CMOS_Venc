@@ -186,7 +186,7 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 {
 	vs_int32_t ret;
 	vs_mipi_tx_config_s config = {};
-	int phy_rate = 1000;
+	int phy_rate = 324;
 	int mode = E_BURST_MODE;
 
 	config.phy_data_rate = phy_rate;
@@ -558,6 +558,7 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 		goto exit;
 	}
 
+	// Need set high in mipitx_config
 	system("echo 1 > /sys/class/gpio/gpio419/value");
 
 	ret = vs_mal_mipi_tx_start(0);
