@@ -16,6 +16,7 @@
 #include <linux/gpio.h>
 
 #include "sample_common.h"
+#include "vs_mal_regtools.h"
 
 #define DPHY_DIV_UPPER_LIMIT	8000
 #define DPHY_DIV_LOWER_LIMIT	2000
@@ -186,10 +187,13 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 {
 	vs_int32_t ret;
 	vs_mipi_tx_config_s config = {};
-	int phy_rate = 324;
-	int mode = E_BURST_MODE;
+
+	// PHY Rate = (pixel_clk_rate × 24 × 1) / 3
+	int phy_rate = 648;
+	int mode = E_NON_BURST_MODE_SYNC_EVENTS;
 
 	config.phy_data_rate = phy_rate;
+	// pixel_clk_rate = 1365 × 990 × 59.95 ≈ 81,000,000 Hz
 	config.pixel_clk = 81000;
 	config.lanes = 3;
 	config.pixel_format = E_MIPI_TX_PIXEL_RGB888;
@@ -204,7 +208,7 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 	config.sync_info.vfp = 18;
 	config.sync_info.vpw = 4;
 
-	mipitx_timing_get(&config, vo_output, timing_info, clk_info, mipitx_phy_rate);
+	// mipitx_timing_get(&config, vo_output, timing_info, clk_info, mipitx_phy_rate);
 
 	ret = vs_mal_mipi_tx_config(0, &config);
 	if (ret)
@@ -344,185 +348,207 @@ fail:
 	return -1;
 }
 
-static int panel_init(vs_bool_t bist)
+static int spi_write_reg(vs_uint8_t reg, vs_uint8_t val)
 {
-	system("echo 1 > /sys/class/gpio/gpio419/value");
-	usleep(100);
-    system("/root/app/spitransfer 1 0 3 0x00 -w 1 0x02");
-	system("/root/app/spitransfer 1 0 3 0x01 -w 1 0x43");
-	usleep(80);
-    system("/root/app/spitransfer 1 0 3 0x01 -w 1 0x4b");
-
-    system("/root/app/spitransfer 1 0 3 0x02 -w 1 0x4f");
-    system("/root/app/spitransfer 1 0 3 0x03 -w 1 0x02");
-    system("/root/app/spitransfer 1 0 3 0x04 -w 1 0xd0");
-    system("/root/app/spitransfer 1 0 3 0x05 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x06 -w 1 0x4f");
-    system("/root/app/spitransfer 1 0 3 0x07 -w 1 0x03");
-    system("/root/app/spitransfer 1 0 3 0x08 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x09 -w 1 0x02");
-    system("/root/app/spitransfer 1 0 3 0x0a -w 1 0x49");
-    system("/root/app/spitransfer 1 0 3 0x0b -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x0c -w 1 0x41");
-    system("/root/app/spitransfer 1 0 3 0x0d -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x0e -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x0f -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x10 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x11 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x12 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x13 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x14 -w 1 0x12");
-    system("/root/app/spitransfer 1 0 3 0x15 -w 1 0x19");
-
-    system("/root/app/spitransfer 1 0 3 0x16 -w 1 0xe0");
-    system("/root/app/spitransfer 1 0 3 0x17 -w 1 0xef");
-
-    system("/root/app/spitransfer 1 0 3 0x18 -w 1 0x99");
-    system("/root/app/spitransfer 1 0 3 0x19 -w 1 0x82");
-    system("/root/app/spitransfer 1 0 3 0x1a -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x1b -w 1 0x7f");
-    system("/root/app/spitransfer 1 0 3 0x1c -w 1 0x1e");
-    system("/root/app/spitransfer 1 0 3 0x1d -w 1 0x50");
-    system("/root/app/spitransfer 1 0 3 0x1e -w 1 0xa9");
-    system("/root/app/spitransfer 1 0 3 0x1f -w 1 0x02");
-    system("/root/app/spitransfer 1 0 3 0x20 -w 1 0x42");
-    system("/root/app/spitransfer 1 0 3 0x21 -w 1 0x71");
-    system("/root/app/spitransfer 1 0 3 0x22 -w 1 0x92");
-    system("/root/app/spitransfer 1 0 3 0x23 -w 1 0xcd");
-    system("/root/app/spitransfer 1 0 3 0x24 -w 1 0x1e");
-    system("/root/app/spitransfer 1 0 3 0x25 -w 1 0x9b");
-    system("/root/app/spitransfer 1 0 3 0x26 -w 1 0xda");
-    system("/root/app/spitransfer 1 0 3 0x27 -w 1 0x16");
-    system("/root/app/spitransfer 1 0 3 0x28 -w 1 0x51");
-    system("/root/app/spitransfer 1 0 3 0x29 -w 1 0x72");
-    system("/root/app/spitransfer 1 0 3 0x2a -w 1 0x99");
-    system("/root/app/spitransfer 1 0 3 0x2b -w 1 0xcb");
-    system("/root/app/spitransfer 1 0 3 0x2c -w 1 0x3e");
-    system("/root/app/spitransfer 1 0 3 0x2d -w 1 0xcd");
-    system("/root/app/spitransfer 1 0 3 0x2e -w 1 0x06");
-    system("/root/app/spitransfer 1 0 3 0x2f -w 1 0x32");
-    system("/root/app/spitransfer 1 0 3 0x30 -w 1 0x54");
-    system("/root/app/spitransfer 1 0 3 0x31 -w 1 0x74");
-    system("/root/app/spitransfer 1 0 3 0x32 -w 1 0x95");
-    system("/root/app/spitransfer 1 0 3 0x33 -w 1 0xc8");
-    system("/root/app/spitransfer 1 0 3 0x34 -w 1 0x21");
-    system("/root/app/spitransfer 1 0 3 0x35 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x36 -w 1 0x5e");
-    system("/root/app/spitransfer 1 0 3 0x37 -w 1 0x78");
-    system("/root/app/spitransfer 1 0 3 0x38 -w 1 0x5b");
-    system("/root/app/spitransfer 1 0 3 0x39 -w 1 0x80");
-    system("/root/app/spitransfer 1 0 3 0x3a -w 1 0x80");
-    system("/root/app/spitransfer 1 0 3 0x3b -w 1 0x80");
-    system("/root/app/spitransfer 1 0 3 0x3c -w 1 0x80");
-    system("/root/app/spitransfer 1 0 3 0x3d -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x3e -w 1 0x3b");
-    system("/root/app/spitransfer 1 0 3 0x3f -w 1 0x72");
-    system("/root/app/spitransfer 1 0 3 0x40 -w 1 0x40");
-    system("/root/app/spitransfer 1 0 3 0x41 -w 1 0xd0");
-    system("/root/app/spitransfer 1 0 3 0x42 -w 1 0x3d");
-    system("/root/app/spitransfer 1 0 3 0x43 -w 1 0x30");
-    system("/root/app/spitransfer 1 0 3 0x44 -w 1 0x02");
-    system("/root/app/spitransfer 1 0 3 0x45 -w 1 0x7b");
-    system("/root/app/spitransfer 1 0 3 0x46 -w 1 0x0a");
-    system("/root/app/spitransfer 1 0 3 0x47 -w 1 0x59");
-    system("/root/app/spitransfer 1 0 3 0x48 -w 1 0x77");
-    system("/root/app/spitransfer 1 0 3 0x49 -w 1 0x9a");
-    system("/root/app/spitransfer 1 0 3 0x4a -w 1 0xa7");
-    system("/root/app/spitransfer 1 0 3 0x4b -w 1 0x0f");
-    system("/root/app/spitransfer 1 0 3 0x4c -w 1 0xaf");
-    system("/root/app/spitransfer 1 0 3 0x4d -w 1 0x66");
-    system("/root/app/spitransfer 1 0 3 0x4e -w 1 0x68");
-    system("/root/app/spitransfer 1 0 3 0x4f -w 1 0xff");
-    system("/root/app/spitransfer 1 0 3 0x50 -w 1 0xff");
-    system("/root/app/spitransfer 1 0 3 0x51 -w 1 0x92");
-    system("/root/app/spitransfer 1 0 3 0x52 -w 1 0x93");
-    system("/root/app/spitransfer 1 0 3 0x53 -w 1 0x0a");
-    system("/root/app/spitransfer 1 0 3 0x54 -w 1 0x58");
-    system("/root/app/spitransfer 1 0 3 0x55 -w 1 0x78");
-    system("/root/app/spitransfer 1 0 3 0x56 -w 1 0x99");
-    system("/root/app/spitransfer 1 0 3 0x57 -w 1 0xa8");
-    system("/root/app/spitransfer 1 0 3 0x58 -w 1 0xff");
-    system("/root/app/spitransfer 1 0 3 0x59 -w 1 0xff");
-    system("/root/app/spitransfer 1 0 3 0x5a -w 1 0xff");
-    system("/root/app/spitransfer 1 0 3 0x5b -w 1 0xff");
-    system("/root/app/spitransfer 1 0 3 0x5c -w 1 0x20");
-    system("/root/app/spitransfer 1 0 3 0x5d -w 1 0x06");
-    system("/root/app/spitransfer 1 0 3 0x5e -w 1 0x18");
-    system("/root/app/spitransfer 1 0 3 0x5f -w 1 0x19");
-    system("/root/app/spitransfer 1 0 3 0x60 -w 1 0xa8");
-    system("/root/app/spitransfer 1 0 3 0x61 -w 1 0xf0");
-    system("/root/app/spitransfer 1 0 3 0x62 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x63 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x64 -w 1 0x76");
-    system("/root/app/spitransfer 1 0 3 0x65 -w 1 0xec");
-    system("/root/app/spitransfer 1 0 3 0x66 -w 1 0x05");
-    system("/root/app/spitransfer 1 0 3 0x67 -w 1 0x5a");
-    system("/root/app/spitransfer 1 0 3 0x68 -w 1 0x85");
-    system("/root/app/spitransfer 1 0 3 0x69 -w 1 0xc0");
-    system("/root/app/spitransfer 1 0 3 0x6a -w 1 0xfb");
-    system("/root/app/spitransfer 1 0 3 0x6b -w 1 0x36");
-    system("/root/app/spitransfer 1 0 3 0x6c -w 1 0x71");
-    system("/root/app/spitransfer 1 0 3 0x6d -w 1 0xac");
-    system("/root/app/spitransfer 1 0 3 0x6e -w 1 0xe7");
-    system("/root/app/spitransfer 1 0 3 0x6f -w 1 0x22");
-    system("/root/app/spitransfer 1 0 3 0x70 -w 1 0x5d");
-    system("/root/app/spitransfer 1 0 3 0x71 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x72 -w 1 0x1a");
-    system("/root/app/spitransfer 1 0 3 0x73 -w 1 0x3c");
-    system("/root/app/spitransfer 1 0 3 0x74 -w 1 0x72");
-    system("/root/app/spitransfer 1 0 3 0x75 -w 1 0xe4");
-    system("/root/app/spitransfer 1 0 3 0x76 -w 1 0x05");
-    system("/root/app/spitransfer 1 0 3 0x77 -w 1 0x5a");
-    system("/root/app/spitransfer 1 0 3 0x78 -w 1 0x86");
-    system("/root/app/spitransfer 1 0 3 0x79 -w 1 0xc1");
-    system("/root/app/spitransfer 1 0 3 0x7a -w 1 0xfc");
-    system("/root/app/spitransfer 1 0 3 0x7b -w 1 0x37");
-    system("/root/app/spitransfer 1 0 3 0x7c -w 1 0x72");
-    system("/root/app/spitransfer 1 0 3 0x7d -w 1 0xad");
-    system("/root/app/spitransfer 1 0 3 0x7e -w 1 0xe8");
-    system("/root/app/spitransfer 1 0 3 0x7f -w 1 0x23");
-    system("/root/app/spitransfer 1 0 3 0x80 -w 1 0x5e");
-    system("/root/app/spitransfer 1 0 3 0x81 -w 1 0x22");
-    system("/root/app/spitransfer 1 0 3 0x82 -w 1 0x72");
-    system("/root/app/spitransfer 1 0 3 0x83 -w 1 0xa7");
-    system("/root/app/spitransfer 1 0 3 0x84 -w 1 0x73");
-    system("/root/app/spitransfer 1 0 3 0x85 -w 1 0xa8");
-    system("/root/app/spitransfer 1 0 3 0x86 -w 1 0x02");
-    system("/root/app/spitransfer 1 0 3 0x87 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x88 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x89 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x8a -w 1 0x95");
-    system("/root/app/spitransfer 1 0 3 0x8b -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x8c -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x8d -w 1 0x05");
-    system("/root/app/spitransfer 1 0 3 0x8e -w 1 0x98");
-    system("/root/app/spitransfer 1 0 3 0x8f -w 1 0x94");
-    system("/root/app/spitransfer 1 0 3 0x90 -w 1 0x13");
-    system("/root/app/spitransfer 1 0 3 0x91 -w 1 0x94");
-    system("/root/app/spitransfer 1 0 3 0x92 -w 1 0xe6");
-    system("/root/app/spitransfer 1 0 3 0x93 -w 1 0x4a");
-    system("/root/app/spitransfer 1 0 3 0x94 -w 1 0x0e");
-    system("/root/app/spitransfer 1 0 3 0x95 -w 1 0xe1");
-    system("/root/app/spitransfer 1 0 3 0x96 -w 1 0x8a");
-    system("/root/app/spitransfer 1 0 3 0x97 -w 1 0x8d");
-    system("/root/app/spitransfer 1 0 3 0x98 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x99 -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x9a -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x9b -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x9c -w 1 0x01");
-    system("/root/app/spitransfer 1 0 3 0x9d -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x9e -w 1 0x00");
-    system("/root/app/spitransfer 1 0 3 0x9f -w 1 0x02");
-    system("/root/app/spitransfer 1 0 3 0xa0 -w 1 0xc0");
-	system("/root/app/spitransfer 1 0 3 0xa1 -w 1 0x00");
-
-	// SOT
-	system("/root/app/spitransfer 1 0 3 0x16 -w 1 0x60");
-    system("/root/app/spitransfer 1 0 3 0x17 -w 1 0xe0");
-
+    vs_uint8_t tx_buf[2];
+    vs_int32_t ret;
+    
+    // 构造发送缓冲区：[寄存器地址, 数据值]
+    tx_buf[0] = reg;
+    tx_buf[1] = val;
+    
+    // 调用SPI传输API
+    ret = vs_mal_spi_transfer(1, 0, 3, tx_buf, NULL, 2);
+    if (ret != 0) {
+        printf("SPI write reg 0x%02x = 0x%02x failed, ret=%d\n", reg, val, ret);
+        return -1;
+    }
+    
     return 0;
 }
 
+static int panel_init(vs_bool_t bist)
+{
+    int ret = 0;
+
+    // 初始启动序列
+    ret |= spi_write_reg(0x00, 0x02);
+    ret |= spi_write_reg(0x01, 0x43);
+    usleep(80);
+
+    ret |= spi_write_reg(0x01, 0x4b);
+    // 主要配置序列
+    ret |= spi_write_reg(0x02, 0x4f);
+    ret |= spi_write_reg(0x03, 0x02);
+    ret |= spi_write_reg(0x04, 0xd0);
+    ret |= spi_write_reg(0x05, 0x00);
+    ret |= spi_write_reg(0x06, 0x4f);
+    ret |= spi_write_reg(0x07, 0x03);
+    ret |= spi_write_reg(0x08, 0x00);
+    ret |= spi_write_reg(0x09, 0x02);
+    ret |= spi_write_reg(0x0a, 0x49);
+    ret |= spi_write_reg(0x0b, 0x00);
+    ret |= spi_write_reg(0x0c, 0x41);
+    ret |= spi_write_reg(0x0d, 0x00);
+    ret |= spi_write_reg(0x0e, 0x00);
+    ret |= spi_write_reg(0x0f, 0x00);
+    ret |= spi_write_reg(0x10, 0x00);
+    ret |= spi_write_reg(0x11, 0x00);
+    ret |= spi_write_reg(0x12, 0x00);
+    ret |= spi_write_reg(0x13, 0x00);
+    ret |= spi_write_reg(0x14, 0x12);
+    ret |= spi_write_reg(0x15, 0x19);
+    
+    ret |= spi_write_reg(0x16, 0xe0);
+    ret |= spi_write_reg(0x17, 0xef);
+    
+    ret |= spi_write_reg(0x18, 0x99);
+    ret |= spi_write_reg(0x19, 0x82);
+    ret |= spi_write_reg(0x1a, 0x00);
+    ret |= spi_write_reg(0x1b, 0x7f);
+    ret |= spi_write_reg(0x1c, 0x1e);
+    ret |= spi_write_reg(0x1d, 0x50);
+    ret |= spi_write_reg(0x1e, 0xa9);
+    ret |= spi_write_reg(0x1f, 0x02);
+    ret |= spi_write_reg(0x20, 0x42);
+    ret |= spi_write_reg(0x21, 0x71);
+    ret |= spi_write_reg(0x22, 0x92);
+    ret |= spi_write_reg(0x23, 0xcd);
+    ret |= spi_write_reg(0x24, 0x1e);
+    ret |= spi_write_reg(0x25, 0x9b);
+    ret |= spi_write_reg(0x26, 0xda);
+    ret |= spi_write_reg(0x27, 0x16);
+    ret |= spi_write_reg(0x28, 0x51);
+    ret |= spi_write_reg(0x29, 0x72);
+    ret |= spi_write_reg(0x2a, 0x99);
+    ret |= spi_write_reg(0x2b, 0xcb);
+    ret |= spi_write_reg(0x2c, 0x3e);
+    ret |= spi_write_reg(0x2d, 0xcd);
+    ret |= spi_write_reg(0x2e, 0x06);
+    ret |= spi_write_reg(0x2f, 0x32);
+    ret |= spi_write_reg(0x30, 0x54);
+    ret |= spi_write_reg(0x31, 0x74);
+    ret |= spi_write_reg(0x32, 0x95);
+    ret |= spi_write_reg(0x33, 0xc8);
+    ret |= spi_write_reg(0x34, 0x21);
+    ret |= spi_write_reg(0x35, 0x00);
+    ret |= spi_write_reg(0x36, 0x5e);
+    ret |= spi_write_reg(0x37, 0x78);
+    ret |= spi_write_reg(0x38, 0x5b);
+    ret |= spi_write_reg(0x39, 0x80);
+    ret |= spi_write_reg(0x3a, 0x80);
+    ret |= spi_write_reg(0x3b, 0x80);
+    ret |= spi_write_reg(0x3c, 0x80);
+    ret |= spi_write_reg(0x3d, 0x00);
+    ret |= spi_write_reg(0x3e, 0x3b);
+    ret |= spi_write_reg(0x3f, 0x72);
+    ret |= spi_write_reg(0x40, 0x40);
+    ret |= spi_write_reg(0x41, 0xd0);
+    ret |= spi_write_reg(0x42, 0x3d);
+    ret |= spi_write_reg(0x43, 0x30);
+    ret |= spi_write_reg(0x44, 0x02);
+    ret |= spi_write_reg(0x45, 0x7b);
+    ret |= spi_write_reg(0x46, 0x0a);
+    ret |= spi_write_reg(0x47, 0x59);
+    ret |= spi_write_reg(0x48, 0x77);
+    ret |= spi_write_reg(0x49, 0x9a);
+    ret |= spi_write_reg(0x4a, 0xa7);
+    ret |= spi_write_reg(0x4b, 0x0f);
+    ret |= spi_write_reg(0x4c, 0xaf);
+    ret |= spi_write_reg(0x4d, 0x66);
+    ret |= spi_write_reg(0x4e, 0x68);
+    ret |= spi_write_reg(0x4f, 0xff);
+    ret |= spi_write_reg(0x50, 0xff);
+    ret |= spi_write_reg(0x51, 0x92);
+    ret |= spi_write_reg(0x52, 0x93);
+    ret |= spi_write_reg(0x53, 0x0a);
+    ret |= spi_write_reg(0x54, 0x58);
+    ret |= spi_write_reg(0x55, 0x78);
+    ret |= spi_write_reg(0x56, 0x99);
+    ret |= spi_write_reg(0x57, 0xa8);
+    ret |= spi_write_reg(0x58, 0xff);
+    ret |= spi_write_reg(0x59, 0xff);
+    ret |= spi_write_reg(0x5a, 0xff);
+    ret |= spi_write_reg(0x5b, 0xff);
+    ret |= spi_write_reg(0x5c, 0x20);
+    ret |= spi_write_reg(0x5d, 0x06);
+    ret |= spi_write_reg(0x5e, 0x18);
+    ret |= spi_write_reg(0x5f, 0x19);
+    ret |= spi_write_reg(0x60, 0xa8);
+    ret |= spi_write_reg(0x61, 0xf0);
+    ret |= spi_write_reg(0x62, 0x00);
+    ret |= spi_write_reg(0x63, 0x00);
+    ret |= spi_write_reg(0x64, 0x76);
+    ret |= spi_write_reg(0x65, 0xec);
+    ret |= spi_write_reg(0x66, 0x05);
+    ret |= spi_write_reg(0x67, 0x5a);
+    ret |= spi_write_reg(0x68, 0x85);
+    ret |= spi_write_reg(0x69, 0xc0);
+    ret |= spi_write_reg(0x6a, 0xfb);
+    ret |= spi_write_reg(0x6b, 0x36);
+    ret |= spi_write_reg(0x6c, 0x71);
+    ret |= spi_write_reg(0x6d, 0xac);
+    ret |= spi_write_reg(0x6e, 0xe7);
+    ret |= spi_write_reg(0x6f, 0x22);
+    ret |= spi_write_reg(0x70, 0x5d);
+    ret |= spi_write_reg(0x71, 0x00);
+    ret |= spi_write_reg(0x72, 0x1a);
+    ret |= spi_write_reg(0x73, 0x3c);
+    ret |= spi_write_reg(0x74, 0x72);
+    ret |= spi_write_reg(0x75, 0xe4);
+    ret |= spi_write_reg(0x76, 0x05);
+    ret |= spi_write_reg(0x77, 0x5a);
+    ret |= spi_write_reg(0x78, 0x86);
+    ret |= spi_write_reg(0x79, 0xc1);
+    ret |= spi_write_reg(0x7a, 0xfc);
+    ret |= spi_write_reg(0x7b, 0x37);
+    ret |= spi_write_reg(0x7c, 0x72);
+    ret |= spi_write_reg(0x7d, 0xad);
+    ret |= spi_write_reg(0x7e, 0xe8);
+    ret |= spi_write_reg(0x7f, 0x23);
+    ret |= spi_write_reg(0x80, 0x5e);
+    ret |= spi_write_reg(0x81, 0x22);
+    ret |= spi_write_reg(0x82, 0x72);
+    ret |= spi_write_reg(0x83, 0xa7);
+    ret |= spi_write_reg(0x84, 0x73);
+    ret |= spi_write_reg(0x85, 0xa8);
+    ret |= spi_write_reg(0x86, 0x02);
+    ret |= spi_write_reg(0x87, 0x00);
+    ret |= spi_write_reg(0x88, 0x00);
+    ret |= spi_write_reg(0x89, 0x00);
+    ret |= spi_write_reg(0x8a, 0x95);
+    ret |= spi_write_reg(0x8b, 0x00);
+    ret |= spi_write_reg(0x8c, 0x00);
+    ret |= spi_write_reg(0x8d, 0x05);
+    ret |= spi_write_reg(0x8e, 0x98);
+    ret |= spi_write_reg(0x8f, 0x94);
+    ret |= spi_write_reg(0x90, 0x13);
+    ret |= spi_write_reg(0x91, 0x94);
+    ret |= spi_write_reg(0x92, 0xe6);
+    ret |= spi_write_reg(0x93, 0x4a);
+    ret |= spi_write_reg(0x94, 0x0e);
+    ret |= spi_write_reg(0x95, 0xe1);
+    ret |= spi_write_reg(0x96, 0x8a);
+    ret |= spi_write_reg(0x97, 0x8d);
+    ret |= spi_write_reg(0x98, 0x00);
+    ret |= spi_write_reg(0x99, 0x00);
+    ret |= spi_write_reg(0x9a, 0x00);
+    ret |= spi_write_reg(0x9b, 0x00);
+    ret |= spi_write_reg(0x9c, 0x01);
+    ret |= spi_write_reg(0x9d, 0x00);
+    ret |= spi_write_reg(0x9e, 0x00);
+    ret |= spi_write_reg(0x9f, 0x02);
+    ret |= spi_write_reg(0xa0, 0xc0);
+    ret |= spi_write_reg(0xa1, 0x00);
+    
+    if (ret != 0) {
+        printf("Panel initialization failed\n");
+        return -1;
+    }
+    
+    printf("Panel initialization completed successfully\n");
+    return 0;
+}
 vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
 	vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate)
 {
@@ -552,6 +578,7 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 	// 	goto exit;
 	// }
 
+	system("echo 1 > /sys/class/gpio/gpio419/value");
 	ret = panel_init(VS_FALSE);
 	if (ret) {
 		printf("panel_init failed!\n");
@@ -566,6 +593,10 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 		printf("vs_mal_mipi_tx_start failed!\n");
 		goto exit;
 	}
+	usleep(100);
+	// SOT (Start of Transmission) 配置
+	spi_write_reg(0x16, 0x60);
+	spi_write_reg(0x17, 0xe0);
 exit:
 	vs_mal_mipi_tx_close();
 
