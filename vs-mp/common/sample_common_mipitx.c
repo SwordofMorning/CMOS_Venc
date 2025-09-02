@@ -188,9 +188,9 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 	vs_int32_t ret;
 	vs_mipi_tx_config_s config = {};
 
-	// PHY Rate = (pixel_clk_rate × 24 × 1) / 3
+	// PHY Rate = (pixel_clk_rate × 24 × 1) / 3 / 2(ddr), *2(mbps)
 	int phy_rate = 648;
-	int mode = E_NON_BURST_MODE_SYNC_EVENTS;
+	int mode = E_NON_BURST_MODE_SYNC_PULSES;
 
 	config.phy_data_rate = phy_rate;
 	// pixel_clk_rate = 1365 × 990 × 59.95 ≈ 81,000,000 Hz
@@ -374,7 +374,7 @@ static int panel_init(vs_bool_t bist)
     // 初始启动序列
     ret |= spi_write_reg(0x00, 0x02);
     ret |= spi_write_reg(0x01, 0x43);
-    usleep(80);
+    usleep(200);
 
     ret |= spi_write_reg(0x01, 0x4b);
     // 主要配置序列
@@ -399,42 +399,42 @@ static int panel_init(vs_bool_t bist)
     ret |= spi_write_reg(0x14, 0x12);
     ret |= spi_write_reg(0x15, 0x19);
     
-    ret |= spi_write_reg(0x16, 0xe0);
-    ret |= spi_write_reg(0x17, 0xef);
+    ret |= spi_write_reg(0x16, 0x60); 
+    ret |= spi_write_reg(0x17, 0xe0);  
     
     ret |= spi_write_reg(0x18, 0x99);
-    ret |= spi_write_reg(0x19, 0x82);
+    ret |= spi_write_reg(0x19, 0x8f); 
     ret |= spi_write_reg(0x1a, 0x00);
     ret |= spi_write_reg(0x1b, 0x7f);
-    ret |= spi_write_reg(0x1c, 0x1e);
+    ret |= spi_write_reg(0x1c, 0x0e);
     ret |= spi_write_reg(0x1d, 0x50);
-    ret |= spi_write_reg(0x1e, 0xa9);
-    ret |= spi_write_reg(0x1f, 0x02);
-    ret |= spi_write_reg(0x20, 0x42);
-    ret |= spi_write_reg(0x21, 0x71);
-    ret |= spi_write_reg(0x22, 0x92);
-    ret |= spi_write_reg(0x23, 0xcd);
+    ret |= spi_write_reg(0x1e, 0x64);
+    ret |= spi_write_reg(0x1f, 0xf3);
+    ret |= spi_write_reg(0x20, 0x43);
+    ret |= spi_write_reg(0x21, 0x70);
+    ret |= spi_write_reg(0x22, 0x9b);
+    ret |= spi_write_reg(0x23, 0xd1);
     ret |= spi_write_reg(0x24, 0x1e);
-    ret |= spi_write_reg(0x25, 0x9b);
-    ret |= spi_write_reg(0x26, 0xda);
-    ret |= spi_write_reg(0x27, 0x16);
-    ret |= spi_write_reg(0x28, 0x51);
-    ret |= spi_write_reg(0x29, 0x72);
-    ret |= spi_write_reg(0x2a, 0x99);
-    ret |= spi_write_reg(0x2b, 0xcb);
+    ret |= spi_write_reg(0x25, 0x81);
+    ret |= spi_write_reg(0x26, 0xd8);
+    ret |= spi_write_reg(0x27, 0x1b);
+    ret |= spi_write_reg(0x28, 0x5e);
+    ret |= spi_write_reg(0x29, 0x7d);
+    ret |= spi_write_reg(0x2a, 0xa4);
+    ret |= spi_write_reg(0x2b, 0xd3);
     ret |= spi_write_reg(0x2c, 0x3e);
-    ret |= spi_write_reg(0x2d, 0xcd);
-    ret |= spi_write_reg(0x2e, 0x06);
-    ret |= spi_write_reg(0x2f, 0x32);
-    ret |= spi_write_reg(0x30, 0x54);
-    ret |= spi_write_reg(0x31, 0x74);
-    ret |= spi_write_reg(0x32, 0x95);
-    ret |= spi_write_reg(0x33, 0xc8);
+    ret |= spi_write_reg(0x2d, 0xd3);
+    ret |= spi_write_reg(0x2e, 0x18);
+    ret |= spi_write_reg(0x2f, 0x52);
+    ret |= spi_write_reg(0x30, 0x69);
+    ret |= spi_write_reg(0x31, 0x94);
+    ret |= spi_write_reg(0x32, 0xa8);
+    ret |= spi_write_reg(0x33, 0xd9);
     ret |= spi_write_reg(0x34, 0x21);
     ret |= spi_write_reg(0x35, 0x00);
-    ret |= spi_write_reg(0x36, 0x5e);
+    ret |= spi_write_reg(0x36, 0x5d);
     ret |= spi_write_reg(0x37, 0x78);
-    ret |= spi_write_reg(0x38, 0x5b);
+    ret |= spi_write_reg(0x38, 0x59);
     ret |= spi_write_reg(0x39, 0x80);
     ret |= spi_write_reg(0x3a, 0x80);
     ret |= spi_write_reg(0x3b, 0x80);
@@ -540,6 +540,11 @@ static int panel_init(vs_bool_t bist)
     ret |= spi_write_reg(0x9f, 0x02);
     ret |= spi_write_reg(0xa0, 0xc0);
     ret |= spi_write_reg(0xa1, 0x00);
+
+	usleep(100);
+	// SOT (Start of Transmission) 配置
+	ret |= spi_write_reg(0x16, 0x60);
+	ret |= spi_write_reg(0x17, 0xe0);
     
     if (ret != 0) {
         printf("Panel initialization failed\n");
@@ -549,6 +554,7 @@ static int panel_init(vs_bool_t bist)
     printf("Panel initialization completed successfully\n");
     return 0;
 }
+
 vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
 	vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate)
 {
@@ -559,6 +565,10 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 		printf("mipi tx open failed!\n");
 		return -1;
 	}
+
+	// system("echo 1 > /sys/class/gpio/gpio419/value");
+
+	system("/root/app/oled_pwr.sh &");
 
 	ret = mipitx_config(vo_output, timing_info, clk_info, mipitx_phy_rate);
 	if (ret) {
@@ -578,25 +588,18 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 	// 	goto exit;
 	// }
 
-	system("echo 1 > /sys/class/gpio/gpio419/value");
+	
 	ret = panel_init(VS_FALSE);
 	if (ret) {
 		printf("panel_init failed!\n");
 		goto exit;
 	}
 
-	// Need set high in mipitx_config
-	system("echo 1 > /sys/class/gpio/gpio419/value");
-
 	ret = vs_mal_mipi_tx_start(0);
 	if (ret) {
 		printf("vs_mal_mipi_tx_start failed!\n");
 		goto exit;
 	}
-	usleep(100);
-	// SOT (Start of Transmission) 配置
-	spi_write_reg(0x16, 0x60);
-	spi_write_reg(0x17, 0xe0);
 exit:
 	vs_mal_mipi_tx_close();
 
