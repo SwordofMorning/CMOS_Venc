@@ -154,7 +154,8 @@ typedef enum vs_hdmi_sound_interface {
 
 /**
 * @brief Define the HDMI audio sample rate
-* @details E_HDMI_SAMPLE_RATE_768K is not supported, set this value will return VS_ERR_HDMI_NOT_SUPPORT.
+* @details E_HDMI_SAMPLE_RATE_768K, E_HDMI_SAMPLE_RATE_176K and E_HDMI_SAMPLE_RATE_88K are not
+* supported, set this value will return VS_ERR_HDMI_NOT_SUPPORT.
 */
 typedef enum vs_hdmi_sample_rate {
     E_HDMI_SAMPLE_RATE_UNKNOWN  = 0,        ///< Reserved, non-configurable

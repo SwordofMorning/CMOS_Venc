@@ -93,7 +93,7 @@ typedef enum vs_rgn_type {
 */
 typedef struct vs_rgn_overlay_attr {
     vs_size_s             size;           ///< overlay region size
-    vs_pixel_format_e     format;         ///< image format, only support ARGB8888 on venc channel
+    vs_pixel_format_e     format;         ///< image format, support ARGB8888/YUV420SP on venc channel
     vs_uint32_t           bgcolor;        ///< background color, if the actually image size less than region size, will display the color of this value
     vs_uint32_t           surface_num;    ///< will alloc buffer for this region by using mmz
 } vs_rgn_overlay_attr_s;
@@ -183,7 +183,7 @@ typedef struct vs_rgn_overlay_qp_info {
 */
 typedef struct vs_rgn_overlay_disp_attr {
     vs_point_s                  point;      ///< overlay rect top-left point located on the video frame
-    vs_uint32_t                 fgalpha;    ///< reserve
+    vs_uint32_t                 fgalpha;    ///< the global alpha value be used if the format is YUV420SP
     vs_uint32_t                 bgalpha;    ///< reserve
     vs_uint32_t                 zorder;     ///< the z-order of each overlay region
     vs_coordinate_mode_e        coord;      ///< coordinate mode of four points of rect
@@ -196,7 +196,7 @@ typedef struct vs_rgn_overlay_disp_attr {
 */
 typedef struct vs_rgn_overlayex_disp_attr {
     vs_point_s                  point;      ///< overlayex rect top-left point located on the video frame
-    vs_uint32_t                 fgalpha;    ///< the fore ground alpha value be usd if the format is ARGB1555
+    vs_uint32_t                 fgalpha;    ///< the fore ground alpha value be used if the format is ARGB1555
     vs_uint32_t                 bgalpha;    ///< the back ground alpha value be used if the format is ARGB1555
     vs_uint32_t                 zorder;     ///< the z-order of each overlay region
     vs_coordinate_mode_e        coord;      ///< coordinate mode of four points of rect

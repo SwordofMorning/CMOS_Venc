@@ -1415,6 +1415,81 @@ vs_int32_t vs_mal_isp_otp_attr_get(vs_int32_t vii_pipe, vs_isp_otp_attr_s *p_otp
  */
 vs_int32_t vs_mal_isp_af_raw_statistics_get(vs_int32_t vii_pipe, vs_isp_af_raw_statistics_s *p_af_raw_statistics);
 
+
+/**
+ * @brief  get the ae drahist statistics.
+ * @details get the ae drahist statistics.
+ * @param [in]  vii_pipe Indicate the pipe id to be register.
+ * @param [out]  p_ae_statistics Indicate the ae statistics.
+ * @return   0 call success.
+ * @warning   none0 call failed. see ERROR_CODE for detail.
+ * @par
+ *
+ */
+vs_int32_t vs_mal_isp_ae_drahist_statistics_get(vs_int32_t vii_pipe, vs_isp_ae_drahist_statistics_s *p_ae_drahsit_statistics);
+
+/**
+ * @brief  set the ae drahist statistics configure.
+ * @details set the ae drahsit statistics configure.
+ * @param [in]  vii_pipe Indicate the pipe id to be register.
+ * @param [in]  p_ae_drahist_statistic_cfg Indicate the ae statistics configure.
+ * @return   0 call success.
+ * @warning   none0 call failed. see ERROR_CODE for detail.
+ * @par
+ *
+ */
+vs_int32_t vs_mal_isp_ae_drahist_statistics_cfg_set(vs_int32_t vii_pipe, const vs_isp_ae_drahist_statistics_cfg_s *p_ae_drahist_statistic_cfg);
+
+/**
+ * @brief  get the ae drahist statistics configure.
+ * @details get the ae drahist statistics configure.
+ * @param [in]  vii_pipe Indicate the pipe id to be register.
+ * @param [out]  p_ae_drahist_statistic_cfg Indicate the statistics configure.
+ * @return   0 call success.
+ * @warning   none0 call failed. see ERROR_CODE for detail.
+ * @par
+ *
+ */
+vs_int32_t vs_mal_isp_ae_drahist_statistics_cfg_get(vs_int32_t vii_pipe, vs_isp_ae_drahist_statistics_cfg_s *p_ae_drahist_statistic_cfg);
+
+/**
+ * @brief  set the dblc attributes.
+ * @details set the dblc attributes.
+ * @param [in]  vii_pipe Indicate the pipe id to be register.
+ * @param [in]  p_dblc_attr Indicate dblc attributes.
+ * @return   0 call success.
+ * @warning   none0 call failed. see ERROR_CODE for detail.
+ * @par
+ */
+vs_int32_t vs_mal_isp_dblc_attr_set(vs_int32_t vii_pipe, const vs_isp_dblc_attr_s *p_dblc_attr);
+
+/**
+ * @brief  get the dblc attributes.
+ * @details get the dblc attributes.
+ * @param [in]  vii_pipe Indicate the pipe id to be register.
+ * @param [out] p_dblc_attr Indicate dblc attributes.
+ * @return   0 call success.
+ * @warning   none0 call failed. see ERROR_CODE for detail.
+ * @par
+ */
+vs_int32_t vs_mal_isp_dblc_attr_get(vs_int32_t vii_pipe, vs_isp_dblc_attr_s *p_dblc_attr);
+
+/**
+ * @brief  Start run isp dblc by pipe id.
+ * @details The func will not return until the dblc result calculate done. you should call this function in a thread.
+ * @param [in]  vii_pipe Indicate the pipe id to be given.
+ * @param [in]  p_input Indicate the input parameter.
+ * @param [out] p_dblc_result Indicate the dblc result.
+ * @param [in]  p_value reserved for future use.
+ * @param [in]  size reserved for future use.
+ * @return   0 call success.
+ * @warning   none0 call failed. see ERROR_CODE for detail.
+ * @par
+ *
+ */
+vs_int32_t vs_mal_isp_dblc_run(vs_int32_t vii_pipe, vs_isp_dblc_input_param_s *p_input,
+	vs_uint16_t *p_dblc_result, vs_void_t *p_value, vs_uint32_t size);
+
 #ifdef __cplusplus
 }
 

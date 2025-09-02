@@ -148,6 +148,9 @@ extern "C"{
 #define VS_ISP_COLOR_SHADING_LIGHT_NUM           22
 
 #define VS_ISP_STATIC_DP_LUT_SIZE                4095
+
+#define VS_ISP_DBLC_NUM_MAX                      4
+#define VS_ISP_AWB_FUSION_COEFF_SIZE                4
 /**
  * @brief Defines vs isp operation type
  * @details
@@ -209,7 +212,7 @@ typedef enum vs_isp_ae_shutter_mode {
  */
 typedef struct vs_isp_comm_attr {
     vs_size_s       sensor_size;          ///<   R; Range:[0, 8192]; Resolution of Sensor
-    vs_float_t      frame_rate;           ///<   RW; Range:[1, 240]; Frame rate of Sensor
+    vs_float_t      frame_rate;           ///<   RW; Range:[1, 480]; Frame rate of Sensor
     vs_isp_bayer_format_e  bayer_format;  ///<   RW; Range:[0x0, 0x3]; Bayer format of Sensor
     vs_wdr_mode_e   wdr_mode;             ///<   R; Range:[0x0, 0x4]; Wdr mode of Sensor
     vs_uint8_t     sensor_mode;           ///<   R; Range:[0x0, 0xff]; Mode of Sensor
@@ -310,6 +313,7 @@ typedef enum vs_isp_ae_hist_switch {
     E_ISP_AE_HIST_AFTER_WB = 0,
     E_ISP_AE_HIST_AFTER_WDR,
     E_ISP_AE_HIST_AFTER_VTPG,
+    E_ISP_AE_HIST_AFTER_BLC,
     E_ISP_AE_HIST_SWITCH_MAX,
 } vs_isp_ae_hist_switch_e;
 
@@ -342,6 +346,8 @@ typedef struct vs_isp_ae_bin5_hist_cfg {
     vs_uint16_t hist_thresh12; ///<   RW; Range:[0x0, 0xFFF]; Histogram statistics thresholds for paragraphs 1 and 2.
     vs_uint16_t hist_thresh23; ///<   RW; Range:[0x0, 0xFFF]; Histogram statistics thresholds for paragraphs 2 and 3.
     vs_uint16_t hist_thresh34; ///<   RW; Range:[0x0, 0xFFF]; Histogram statistics thresholds for paragraphs 3 and 4.
+    vs_uint8_t  zone_v;        ///<   RW; Range:[0x1, 0x21]; Histogram statistics number of vertical blocks.
+    vs_uint8_t  zone_h;        ///<   RW; Range:[0x1, 0x21]; Histogram statistics number of horizontal blocks.
 } vs_isp_ae_bin5_hist_cfg_s;
 
 /**
@@ -357,6 +363,8 @@ typedef struct vs_isp_ae_bin1024_hist_cfg {
     vs_uint8_t scale_top;         ///<   RW; Range:[0x0, 0xF]; Range for the upper half scale.
     vs_uint8_t plane_mode;        ///<   RW; Range:[0x0, 0x7]; Plane separation mode.
     vs_uint8_t zone_weight[VS_ISP_METERING_ZONE_NUM_MAX]; ///<   RW; Range:[0x0, 0xF]; Block weight table of histogram area.
+    vs_uint8_t zone_h;            ///<   RW; Range:[0x1, 0x21]; zone weight number of vertical blocks.
+    vs_uint8_t zone_v;            ///<   RW; Range:[0x1, 0x21]; zone weight number of horizontal blocks.
 }vs_isp_ae_bin1024_hist_cfg_s;
 
 /**
@@ -386,8 +394,8 @@ typedef enum vs_isp_awb_stats_mode {
 typedef struct vs_isp_awb_statistics_cfg {
     vs_isp_awb_switch_e awb_switch;                    ///<   RW; Range:[0x0, 0x1]; Position for obtaining white balance statistics.
     vs_isp_awb_stats_mode_e awb_stats_mode;            ///<   RW; Range:[0x0, 0x1]; White balance statistical information mode.
-    vs_uint8_t  zone_v;      ///<   RW; Range:[0x0, 0x21]; White balance statistics number of vertical blocks.
-    vs_uint8_t  zone_h;      ///<   RW; Range:[0x0, 0x21]; White balance statistics number of horizontal blocks.
+    vs_uint8_t  zone_v;      ///<   RW; Range:[0x1, 0x21]; White balance statistics number of vertical blocks.
+    vs_uint8_t  zone_h;      ///<   RW; Range:[0x1, 0x21]; White balance statistics number of horizontal blocks.
     vs_uint16_t white_level; ///<   RW; Range:[0x0, 0x3FF]; Find the upper brightness limit of the white spot.
     vs_uint16_t black_level; ///<   RW; Range:[0x0, 0x3FF]; Find the lower brightness limit of the white spot.
     vs_uint16_t cr_min;      ///<   RW; Range:[0x0, 0xFFF]; Minimum color difference R/G when counting white dot information.
@@ -453,8 +461,8 @@ typedef struct vs_isp_af_nr_attr {
 typedef struct vs_isp_af_raw_statistics_cfg {
     vs_isp_af_switch_e af_switch;               ///<   RW; Range:[0x0, 0x1]; Position for obtaining focus statistics.
     vs_isp_af_kernel_select_e  kernel_sel;      ///<   RW; Range:[0x0, 0x3]; Kernel selection.
-    vs_uint8_t zone_v;                          ///<   RW; Range:[0x0, 0x21]; Number of vertical direction blocks.
-    vs_uint8_t zone_h;                          ///<   RW; Range:[0x0, 0x21]; Number of horizontal direction blocks.
+    vs_uint8_t zone_v;                          ///<   RW; Range:[0x1, 0x21]; Number of vertical direction blocks.
+    vs_uint8_t zone_h;                          ///<   RW; Range:[0x1, 0x21]; Number of horizontal direction blocks.
     vs_isp_af_nr_attr_s nr_attr;
 }vs_isp_af_raw_statistics_cfg_s;
 
@@ -538,7 +546,7 @@ typedef struct vs_isp_iq_info {
 
     //CSC
     vs_uint16_t   csc_coefft_actual[VS_ISP_CSC_COEFFT_SIZE];                     ///<   RW; Range:[0x0, 0xFFFF]; Csc coefft effective value
-    vs_uint16_t   csc_coefft_o_actual[VS_ISP_CSC_COEFFT_O_SIZE];                 ///<   RW; Range:[0x0, 0x7FF]; Csc coefft effective value
+    vs_int16_t   csc_coefft_o_actual[VS_ISP_CSC_COEFFT_O_SIZE];                 ///<   RW; Range:Range:[-1024,1023]; Csc coefft effective value
 } vs_isp_iq_info_s;
 
 /**
@@ -1155,13 +1163,7 @@ typedef struct vs_isp_demosaic_attr {
     vs_isp_demosaic_auto_attr_s   auto_attr;
 } vs_isp_demosaic_attr_s;
 
-/**
- * @brief Defines ISP purple Purple fringing correction algorithm attribute
- * @details
- */
-typedef struct vs_isp_pfc_attr {
-    vs_uint8_t    debug_sel;                                           ///<   RW; Range:[0x0, 0xFF]; Debug mode selection.
-    vs_bool_t     use_color_corrected_rgb;                             ///<   RW; Range:[0, 1]; Format:1.0; Generate masks using internal CCM.
+typedef struct vs_isp_pfc_manual_attr  {
     vs_uint16_t   hue_low_slope;                                       ///<   RW; Range:[0x0, 0xFFF]; Slope of lower hue limit.
     vs_uint16_t   hue_low_offset;                                      ///<   RW; Range:[0x0, 0xFFF]; Mask value below hue limit.
     vs_uint16_t   hue_low_thresh;                                      ///<   RW; Range:[0x0, 0xFFF]; Threshold of lower hue limit.
@@ -1199,8 +1201,61 @@ typedef struct vs_isp_pfc_attr {
     vs_uint16_t   hsl_thresh;                                          ///<   RW; Range:[0x0, 0xFFF]; Threshold of lower combined mask limit.
     vs_uint16_t   purple_strength;                                     ///<   RW; Range:[0x0, 0xFFF]; Strength OF purple correction.
     vs_uint8_t    saturation_strength;                                 ///<   RW; Range:[0x0, 0xFF]; Saturation strength of fringing after correction.
+}vs_isp_pfc_manual_attr_s;
+
+typedef struct vs_isp_pfc_auto_attr  {
+    vs_uint16_t   hue_low_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                     ///<   RW; Range:[0x0, 0xFFF]; Slope of lower hue limit.
+    vs_uint16_t   hue_low_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                    ///<   RW; Range:[0x0, 0xFFF]; Mask value below hue limit.
+    vs_uint16_t   hue_low_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                    ///<   RW; Range:[0x0, 0xFFF]; Threshold of lower hue limit.
+    vs_uint16_t   hue_high_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                    ///<   RW; Range:[0x0, 0xFFF]; Slope of upper hue limit.
+    vs_uint16_t   hue_high_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                   ///<   RW; Range:[0x0, 0xFFF]; Mask value above hue limit.
+    vs_uint16_t   hue_high_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                   ///<   RW; Range:[0x0, 0xFFF]; Threshold of upper hue limit.
+    vs_uint16_t   hue_strength[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                      ///<   RW; Range:[0x0, 0xFFF]; Strength of hue mask.
+    vs_uint16_t   sat_low_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                     ///<   RW; Range:[0x0, 0xFFF]; Slope of lower saturation limit.
+    vs_uint16_t   sat_low_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                    ///<   RW; Range:[0x0, 0xFFF]; Mask value below saturation limit.
+    vs_uint16_t   sat_low_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                    ///<   RW; Range:[0x0, 0xFFF]; Threshold of lower saturation limit.
+    vs_uint16_t   sat_high_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                    ///<   RW; Range:[0x0, 0xFFF]; Slope of upper saturation limit.
+    vs_uint16_t   sat_high_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                   ///<   RW; Range:[0x0, 0xFFF]; Mask value above saturation limit.
+    vs_uint16_t   sat_high_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                   ///<   RW; Range:[0x0, 0xFFF]; Threshold of upper saturation limit.
+    vs_uint16_t   sat_strength[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                      ///<   RW; Range:[0x0, 0xFFF]; Strength of saturation mask.
+    vs_uint16_t   luma1_low_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                   ///<   RW; Range:[0x0, 0xFFF]; Slope of lower luma1 limit.
+    vs_uint16_t   luma1_low_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                  ///<   RW; Range:[0x0, 0xFFF]; Mask value below luma1 limit.
+    vs_uint16_t   luma1_low_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                  ///<   RW; Range:[0x0, 0xFFF]; Threshold of lower luma1 limit.
+    vs_uint16_t   luma1_high_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                  ///<   RW; Range:[0x0, 0xFFF]; Slope of upper luma1 limit.
+    vs_uint16_t   luma1_high_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                 ///<   RW; Range:[0x0, 0xFFF]; Mask value above luma1 limit.
+    vs_uint16_t   luma1_high_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                 ///<   RW; Range:[0x0, 0xFFF]; Threshold of upper luma1 limit.
+    vs_uint16_t   luma2_low_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                   ///<   RW; Range:[0x0, 0xFFF]; Slope of lower luma2 limit.
+    vs_uint16_t   luma2_low_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                  ///<   RW; Range:[0x0, 0xFFF]; Mask value below luma2 limit.
+    vs_uint16_t   luma2_low_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                  ///<   RW; Range:[0x0, 0xFFF]; Threshold of lower luma2 limit.
+    vs_uint16_t   luma2_high_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                  ///<   RW; Range:[0x0, 0xFFF]; Slope of upper luma2 limit.
+    vs_uint16_t   luma2_high_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                 ///<   RW; Range:[0x0, 0xFFF]; Mask value above luma2 limit.
+    vs_uint16_t   luma2_high_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                 ///<   RW; Range:[0x0, 0xFFF]; Threshold of upper luma2 limit.
+    vs_uint16_t   luma_strength[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                     ///<   RW; Range:[0x0, 0xFFF]; Strength of luma mask.
+    vs_uint16_t   sad_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                         ///<   RW; Range:[0x0, 0xFFF]; Slope of SAD limit.
+    vs_uint16_t   sad_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                        ///<   RW; Range:[0x0, 0xFFF]; Mask value below SAD lower limit.
+    vs_uint16_t   sad_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                        ///<   RW; Range:[0x0, 0xFFF]; Threshold of lower SAD limit.
+    vs_uint16_t   off_center_mult[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                   ///<   RW; Range:[0x0, 0xFFFF]; Radial distance multiplier.
+    vs_uint8_t    pf_radial_lut[VS_ISP_AUTO_ISO_STRENGTH_SIZE][VS_ISP_PFC_SHADING_LUT_SIZE];        ///<   RW; Range:[0x0, 0xFF]; PF correction radial mask lut.
+    vs_uint16_t   hsl_slope[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                         ///<   RW; Range:[0x0, 0xFFF]; Slope of combined mask lower limit.
+    vs_uint16_t   hsl_offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                        ///<   RW; Range:[0x0, 0xFFF]; Final mask value below combined mask lower limit.
+    vs_uint16_t   hsl_thresh[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                        ///<   RW; Range:[0x0, 0xFFF]; Threshold of lower combined mask limit.
+    vs_uint16_t   purple_strength[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                                   ///<   RW; Range:[0x0, 0xFFF]; Strength OF purple correction.
+    vs_uint8_t    saturation_strength[VS_ISP_AUTO_ISO_STRENGTH_SIZE];                               ///<   RW; Range:[0x0, 0xFF]; Saturation strength of fringing after correction.
+} vs_isp_pfc_auto_attr_s;
+
+
+/**
+ * @brief Defines ISP purple Purple fringing correction algorithm attribute
+ * @details
+ */
+typedef struct vs_isp_pfc_attr {
+    vs_uint8_t    debug_sel;                                           ///<   RW; Range:[0x0, 0xFF]; Debug mode selection.
+    vs_bool_t     use_color_corrected_rgb;                             ///<   RW; Range:[0, 1]; Format:1.0; Generate masks using internal CCM.
     vs_uint16_t   center_x;                                            ///<   RW; Range:[0x0, 0xFFFF]; X-coordinate of the center point.
     vs_uint16_t   center_y;                                            ///<   RW; Range:[0x0, 0xFFFF]; Y-coordinate of the center point.
+    vs_isp_op_type_e  optype;                                          ///<   RW; Range:[0, 1]; Format:1.0; Operation type.
+    vs_isp_pfc_manual_attr_s  manual_attr;
+    vs_isp_pfc_auto_attr_s   auto_attr;
 } vs_isp_pfc_attr_s;
 
 /**
@@ -1358,12 +1413,23 @@ typedef struct vs_isp_auto_level_auto_attr {
     vs_uint16_t   offset[VS_ISP_AUTO_ISO_STRENGTH_SIZE][VS_ISP_GAMMA_GAIN_SIZE];       ///<   RW; Range:[0x0, 0xFFF]; Offset subtracted of r g b channel.
 } vs_isp_auto_level_auto_attr_s;
 
+typedef struct vs_isp_gamma_static_manual_attr {
+    vs_uint32_t   data[VS_ISP_GAMMA_DATA_LUT_SIZE]; ///<   RW; Range:[0x0, 0xFFF]; Gamma data LUT.
+}vs_isp_gamma_static_manual_attr_s;
+
+
+typedef struct vs_isp_gamma_static_auto_attr {
+    vs_uint32_t   data[VS_ISP_AUTO_ISO_STRENGTH_SIZE][VS_ISP_GAMMA_DATA_LUT_SIZE]; ///<   RW; Range:[0x0, 0xFFF]; Gamma data LUT.
+}vs_isp_gamma_static_auto_attr_s;
+
 /**
  * @brief Defines vs isp gamma static attribute
  * @details
  */
 typedef struct vs_isp_gamma_static_attr {
-    vs_uint32_t   data[VS_ISP_GAMMA_DATA_LUT_SIZE]; ///<   RW; Range:[0x0, 0xFFF]; Gamma data LUT.
+    vs_isp_op_type_e  optype;
+    vs_isp_gamma_static_manual_attr_s manual_attr;
+    vs_isp_gamma_static_auto_attr_s auto_attr;
 } vs_isp_gamma_static_attr_s;
 
 /**
@@ -1476,7 +1542,7 @@ typedef struct vs_isp_csc_attr {
     vs_isp_color_mode_e color_mode_id;                          ///<   RW; Range:[0, 4]; Format:2.0; Color space mode selection.
     vs_color_gamut_e   color_space_id;                          ///<   RW; Range:[0, 2]; Format:2.0; Color space curve selection.
     vs_uint16_t   use_coefft[VS_ISP_CSC_COEFFT_SIZE];           ///<   RW; Range:[0x0, 0xFFFF]; Matrix coefficient of user-defined.
-    vs_uint16_t   use_coefft_o[VS_ISP_CSC_COEFFT_O_SIZE];       ///<   RW; Range:[0x0, 0x7FF]; Offset of matrix coefficient.
+    vs_int16_t   use_coefft_o[VS_ISP_CSC_COEFFT_O_SIZE];        ///<   RW; Range:[-1024, 1023]; Offset of matrix coefficient.
     vs_uint16_t   clip_min_y;                                   ///<   RW; Range:[0x0, 0x3FF]; Minimum value for Y, values below this are clipped.
     vs_uint16_t   clip_max_y;                                   ///<   RW; Range:[0x0, 0x3FF]; Maximum value for Y, values above this are clipped.
     vs_uint16_t   clip_min_uv;                                  ///<   RW; Range:[0x0, 0x3FF]; Minimum value for UV, values below this are clipped.
@@ -1720,16 +1786,24 @@ typedef struct vs_isp_ae_attr {
  * @details
  */
 typedef struct vs_isp_wdr_exp_manual_attr {
-    vs_uint32_t   exp_ratio;                   ///<  RW; Range:[0x0, 0xFFFF]; System exposure ratio.
+    vs_uint32_t   exp_ratio;                   ///<  RW; Range:[0x40, 0xFFFF]; System exposure ratio.
 } vs_isp_wdr_exp_manual_attr_s;
+
+typedef enum vs_isp_wdr_exp_adjust_mode {
+    E_ISP_WDR_EXP_ADJUST_MODE_FIXED = 0,
+    E_ISP_WDR_EXP_ADJUST_MODE_LIMITED_RANGE,
+    E_ISP_WDR_EXP_ADJUST_MODE_MAX,
+}vs_isp_wdr_exp_adjust_mode_e;
 
 /**
  * @brief Defines vs isp wdr exposure auto attribute
  * @details
  */
 typedef struct vs_isp_wdr_exp_auto_attr {
-    vs_uint32_t   max_exp_ratio;               ///<  RW; Range:[0x0, 0xFFFF]; System max exposure ratio.
+    vs_isp_wdr_exp_adjust_mode_e adjust_mode;
+    vs_uint32_t   max_exp_ratio;               ///<  RW; Range:[0x40, 0xFFFF]; System max exposure ratio.
     vs_uint32_t   min_exp_ratio;               ///<  RW; Range:[0x0, 0xFFFF]; System min exposure ratio.
+    vs_uint32_t   fixed_ratio[VS_ISP_AUTO_ISO_STRENGTH_SIZE]; ///<  RW; Range:[0x40, 0xFFFF]; exposure ratio.
 } vs_isp_wdr_exp_auto_attr_s;
 
 /**
@@ -1837,9 +1911,9 @@ typedef struct vs_isp_wb_auto_attr {
     vs_uint16_t   static_wb[VS_ISP_AWB_STATIC_WB_SIZE];                                         ///<  RW; Range:[0x0, 0xFFFF]; Coefficient of static white balance .
     vs_uint16_t   wb_strength_sky[VS_ISP_AWB_SKY_STRENGTH];                                     ///<  RW; Range:[0x0, 0xFFFF]; White balance strength of scenes over sky_lux_th.
     vs_uint16_t   awb_warming_cct[VS_ISP_AWB_WARMING_CCT_SIZE];                                 ///<  RW; Range:[0x0, 0xFFFF]; Calibration light color temperature.
-    vs_uint16_t   awb_warming_ls_a[VS_ISP_AWB_WARMING_LS_SIZE];                                 ///<  RW; Range:[0x0, 0xFFFF]; White balance offset strength under A light.
-    vs_uint16_t   awb_warming_ls_d50[VS_ISP_AWB_WARMING_LS_SIZE];                               ///<  RW; Range:[0x0, 0xFFFF]; White balance offset strength under D50 light.
-    vs_uint16_t   awb_warming_ls_d75[VS_ISP_AWB_WARMING_LS_SIZE];                               ///<  RW; Range:[0x0, 0xFFFF]; White balance offset strength under D75 light.
+    vs_uint16_t   awb_warming_ls_a[VS_ISP_AWB_WARMING_LS_SIZE];                                 ///<  RW; Range:[0x0, 0xFFF]; White balance offset strength under A light.
+    vs_uint16_t   awb_warming_ls_d50[VS_ISP_AWB_WARMING_LS_SIZE];                               ///<  RW; Range:[0x0, 0xFFF]; White balance offset strength under D50 light.
+    vs_uint16_t   awb_warming_ls_d75[VS_ISP_AWB_WARMING_LS_SIZE];                               ///<  RW; Range:[0x0, 0xFFF]; White balance offset strength under D75 light.
     vs_uint8_t    awb_avg_coef;                                                                 ///<  RW; Range:[0x0, 0xFF]; AWB adjust the speed.
     vs_uint16_t   color_temp[VS_ISP_AWB_LIGHT_SRC_LEN];                                         ///<  RW; Range:[0x0, 0xFFFF]; Range of color temperatures in mired.
     vs_uint16_t   ct_rg_pos_calc[VS_ISP_AWB_LIGHT_SRC_LEN];                                     ///<  RW; Range:[0x0, 0xFFFF]; R/G value of given color temp.
@@ -1873,12 +1947,33 @@ typedef struct vs_isp_awb_scene_presets {
  * @brief Defines vs isp awb algorithm attribute
  * @details
  */
+
+typedef struct vs_isp_awb_od_attr {
+    vs_bool_t   enable;          /* RW; Range:[0x0, 0x1];  */
+    vs_uint8_t ratio_up_limit;   /* RW; Range:[0x0, 100];  */
+    vs_uint8_t ratio_low_limit;  /* RW; Range:[0x0, 100];  */
+    vs_uint16_t bg_diff_thr;     /* RW; Range:[0x0, 1000]; */
+    vs_uint16_t rg_diff_thr;     /* RW; Range:[0x0, 1000]; */
+    vs_uint16_t frm_num;         /* RW; Range:[0x0, 2047]; */
+    vs_uint16_t avg_coef;        /* RW; Range:[0x0, 2047]; */
+}vs_isp_awb_od_attr_s;
+
+typedef struct vs_isp_awb_fusion_attr {
+    vs_uint8_t mid_coeff[VS_ISP_AWB_FUSION_COEFF_SIZE]; /* RW; Range:[0x0, 0xFF]; */
+    vs_uint8_t wgt_coeff[VS_ISP_AWB_FUSION_COEFF_SIZE]; /* RW; Range:[0x0, 0xFF]; */
+    vs_uint8_t fix_coeff[VS_ISP_AWB_FUSION_COEFF_SIZE]; /* RW; Range:[0x0, 0xFF]; */
+    vs_uint8_t glb_coeff[VS_ISP_AWB_FUSION_COEFF_SIZE]; /* RW; Range:[0x0, 0xFF]; */
+    vs_uint16_t wgt_thr[VS_ISP_AWB_FUSION_COEFF_SIZE];  /* RW; Range:[0x0, 0xFFFF]; */
+}vs_isp_awb_fusion_attr_s;
+
 typedef struct vs_isp_awb_attr {
     vs_isp_awb_mode_e awb_mode_id;                                          ///<  RW; Range:[0, 8]; AWB mode id.
     vs_isp_awb_scene_presets_s scene_presets[VS_ISP_AWB_SCENE_PRESET_SIZE]; ///<  RW; Range:[0x0, 0xFFFF]; AWB scene presets R/G and B/G value.
     vs_uint16_t    awb_temperature_id;                                      ///<  RW; Range:[0x0, 0xFFFF]; AWB temperature id.
     vs_isp_wb_manual_attr_s manual_attr;
     vs_isp_wb_auto_attr_s   auto_attr;
+    vs_isp_awb_od_attr_s od_attr;
+    vs_isp_awb_fusion_attr_s fusion_attr;
 }vs_isp_awb_attr_s;
 
 
@@ -2134,6 +2229,12 @@ typedef enum vs_isp_nr3d_sigma_mode {
     E_ISP_NR3D_SIGMA_SOFT_CALC,
     E_ISP_NR3D_SIGMA_MAX
 }vs_isp_nr3d_sigma_mode_e;
+
+typedef struct vs_isp_nr3d_sigma_hist_attr {
+    vs_uint8_t alpha_low;                                       /* RW; Range:[0,15] */
+    vs_uint8_t alpha_high;                                      /* RW; Range:[0,15] */
+} vs_isp_nr3d_sigma_hist_attr_s;
+
 /**
  * @brief Defines vs isp nr3d algorithm attribute
  * @details
@@ -2165,6 +2266,7 @@ typedef struct vs_isp_nr3d_attr {
     vs_isp_nr3d_manual_attr_s manual_attr;
     vs_isp_nr3d_auto_attr_s   auto_attr;
     vs_isp_nr3d_sigma_mode_e ext_sigma_mode;                    ///< RW; Range:[0, 3]; Nr3d sigma mode select.
+    vs_isp_nr3d_sigma_hist_attr_s hist_attr;
 } vs_isp_nr3d_attr_s;
 
 /**
@@ -2340,15 +2442,31 @@ typedef struct vs_isp_yuv_pfc_attr {
     vs_isp_yuv_pfc_auto_attr_s   auto_attr;
 } vs_isp_yuv_pfc_attr_s;
 
+
 /**
- * @brief Defines vs isp sa algorithm  attribute
+ * @brief Defines vs isp sa algorithm manual attribute
  * @details
  */
+typedef struct vs_isp_sa_manual_attr {
+    vs_uint16_t sa_gain[VS_ISP_SA_LUT_SIZE];	///< RW; Range: [0x0, 0xFFF]; Format:4.8; UV gain Lut.
+} vs_isp_sa_manual_attr_s;
+
+/**
+ * @brief Defines vs isp sa algorithm auto attribute
+ * @details
+ */
+typedef struct vs_isp_sa_auto_attr {
+    vs_uint16_t sa_gain[VS_ISP_AUTO_ISO_STRENGTH_SIZE][VS_ISP_SA_LUT_SIZE];	///< RW; Range: [0x0, 0xFFF]; Format:4.8; UV gain Lut.
+} vs_isp_sa_auto_attr_s;
+
+
 typedef struct vs_isp_sa_attr {
     vs_bool_t enable;                           ///< RW; Range:[0, 1]; Sa enable signal.
-    vs_uint16_t sa_gain[VS_ISP_SA_LUT_SIZE];    ///< RW; Range: [0x0, 0xFFF]; Format:4.8; UV gain Lut.
     vs_uint8_t sa_min;                          ///< RW; Range: [0x0, 0xFF]; Format:8.0; UV Min Value.
     vs_uint8_t sa_max;                          ///< RW; Range: [0x0, 0xFF]; Format:8.0; UV Max Value.
+    vs_isp_op_type_e optype; ///< RW; Range:[0, 1]; Format:1.0; PFC operation mode select.
+    vs_isp_sa_manual_attr_s manual_attr;
+    vs_isp_sa_auto_attr_s   auto_attr;
 } vs_isp_sa_attr_s;
 
 /**
@@ -2573,7 +2691,7 @@ typedef struct vs_isp_bind_attr {
 
 typedef struct vs_isp_ae_piris_result {
     vs_bool_t   valid;                                                  ///<  RW; Range:[0x0, 0x1];
-    vs_int32_t  position;                                               ///<  RW; Range:[-0x7FFFFFFF, 0x80000000];
+    vs_int32_t  position;                                               ///<  RW; Range:[-0x80000000, 0x7FFFFFFF];
     vs_uint32_t gain;                                                   ///<  RW; Range:[0x0, 0xFFFFFFFF];
 }vs_isp_ae_piris_result_s;
 
@@ -2584,20 +2702,46 @@ typedef enum vs_isp_wdr_fs_mode {
     E_ISP_WDR_FS_MODE_MAX
 } vs_isp_wdr_fs_mode_e;
 
+typedef union vs_isp_ae_result_ctrl {
+    vs_uint64_t  key;
+    struct {
+        vs_uint64_t  shut_time          : 1 ;   /* [0] */
+        vs_uint64_t  isp_dgain          : 1 ;   /* [1] */
+        vs_uint64_t  again              : 1 ;   /* [2] */
+        vs_uint64_t  dgain              : 1 ;   /* [3] */
+        vs_uint64_t  total_gain         : 1 ;   /* [4] */
+        vs_uint64_t  run_interval       : 1 ;   /* [5] */
+        vs_uint64_t  piris              : 1 ;   /* [6] */
+        vs_uint64_t  wdr_fs_mode        : 1 ;   /* [7] */
+        vs_uint64_t  hmax               : 1 ;   /* [8] */
+        vs_uint64_t  vmax               : 1 ;   /* [9] */
+        vs_uint64_t  statistics_cfg     : 1 ;   /* [10] */
+        vs_uint64_t  resv               : 53;   /* [11:63] */
+    };
+} vs_isp_ae_result_ctrl_u;
+
+typedef enum vs_isp_ae_result_update_mode
+{
+    E_ISP_AE_RESULT_UPDATE_MODE_IMMED = 0,
+    E_ISP_AE_RESULT_UPDATE_MODE_DELAY,
+    E_ISP_AE_RESULT_UPDATE_MODE_MAX,
+} vs_isp_ae_result_update_mode_e;
+
 typedef struct vs_isp_ae_result {
-    vs_uint32_t shut_time[VS_ISP_AE_EXPOSURE_NUM_MAX]; ///<  RW; Range:[0x0, 0xFFFFFFFF];
-    vs_uint32_t isp_dgain;                             ///<  RW; Range:[0x0, 0xFFFFFFFF];
+    vs_isp_ae_result_ctrl_u update_mask;
+    vs_uint32_t shut_time[VS_ISP_AE_EXPOSURE_NUM_MAX]; ///<  RW; Range:[0x0, 100000000];
+    vs_uint32_t isp_dgain;                             ///<  RW; Range:[0x100, 0x1FFF];
     vs_uint32_t again[VS_ISP_AE_EXPOSURE_NUM_MAX];     ///<  RW; Range:[0x0, 0xFFFFFFFF];
     vs_uint32_t dgain[VS_ISP_AE_EXPOSURE_NUM_MAX];     ///<  RW; Range:[0x0, 0xFFFFFFFF];
     vs_uint32_t total_gain;                            ///<  RW; Range:[0x0, 0xFFFFFFFF];
-    vs_uint8_t  run_interval;                          ///<  RW; Range:[0x0, 0xFFFFFFFF];
+    vs_uint8_t  run_interval;                          ///<  RW; Range:[0x0, 0xFF];
     vs_isp_ae_piris_result_s piris_result;
     vs_isp_wdr_fs_mode_e wdr_fs_mode;
     vs_uint32_t sensor_h_max;                          ///<  RW; Range:[0x0, 0xFFFFFFFF];
     vs_uint32_t sensor_v_max;                          ///<  RW; Range:[0x0, 0xFFFFFFFF];
     vs_isp_ae_state_e  ae_state;
-    vs_bool_t statistics_cfg_update;                   ///<  RW; Range:[0x0, 0x1];
     vs_isp_ae_statistics_cfg_s ae_cfg;
+    vs_isp_ae_result_update_mode_e update_mode;         ///<  RW; Range:[0x0, 0x1];
 } vs_isp_ae_result_s;
 
 typedef enum vs_isp_awb_light_src {
@@ -2854,6 +2998,42 @@ typedef struct vs_isp_af_raw_statistics_zone {
 typedef struct vs_isp_af_raw_statistics {
 	vs_isp_af_raw_statistics_zone_s statistics_value[VS_ISP_METERING_ZONE_NUM_MAX];
 }vs_isp_af_raw_statistics_s;
+
+typedef struct vs_isp_ae_drahist_statistics {
+    vs_uint32_t fullhist[VS_ISP_FULL_HISTOGRAM_SIZE];   ///<   R; Range:[0x0, 0xFFFFFFFF];
+    vs_uint32_t fullhist_sum;                           ///<   R; Range:[0x0, 0xFFFFFFFF];
+} vs_isp_ae_drahist_statistics_s;
+
+typedef struct vs_isp_ae_drahist_statistics_cfg {
+    vs_bool_t enable;             ///<   RW; Range:[0x0, 0x1];
+    vs_isp_ae_bin1024_hist_cfg_s hist_cfg;
+} vs_isp_ae_drahist_statistics_cfg_s;
+
+typedef struct vs_isp_dblc_ctrl_attr {
+    vs_uint16_t low_thr;                                  ///<  RW; Range:[0x0, 0xFFE];
+    vs_uint16_t high_thr;                                 ///<  RW; Range:[0x1, 0xFFF];high_thr > low_thr
+    vs_uint16_t calib_black_level[VS_ISP_DBLC_NUM_MAX];   ///<  RW; Range:[0x0, 0xFFF];
+    vs_int16_t offset[VS_ISP_DBLC_NUM_MAX];               ///<  RW; Range:[-4095, 4095];
+    vs_uint16_t tolerance;                                ///<  RW; Range:[0x0, 0xFFF];
+    vs_uint8_t filter_strength;                           ///<  RW; Range:[0x0, 0xFF];
+    vs_uint8_t filter_thr;                                ///<  RW; Range:[0x0, 0xFF];
+} vs_isp_dblc_ctrl_attr_s;
+
+typedef struct vs_isp_dblc_attr {
+    vs_bool_t enable;                    ///<  RW; Range:[0x0,0x1]:0:not use dblc;1:enable dblc
+    vs_bool_t channel_enable;            ///<  RW; Range:[0x0,0x1]:0:not use separate;1:enable separate
+    vs_isp_bayer_format_e  bayer_format; ///<  RW; Range:[0x0,0x3]; Bayer format of Sensor
+    vs_rect_s rect;
+    vs_isp_op_type_e optype;             ///<  RW; Range:[0, 1]; Format:1.0; dblc operation mode select.
+    vs_isp_dblc_ctrl_attr_s manual_attr;
+    vs_isp_dblc_ctrl_attr_s auto_attr[VS_ISP_AUTO_ISO_STRENGTH_SIZE];
+} vs_isp_dblc_attr_s;
+
+typedef struct vs_isp_dblc_input_param {
+    vs_void_t *data;   //input raw data
+    vs_uint16_t row;   ///<  RW; Range:[0,2184]:row of input data
+    vs_uint16_t col;   ///<  RW; Range:[0,4096]:col of input data
+} vs_isp_dblc_input_param_s;
 
 #ifdef __cplusplus
 }

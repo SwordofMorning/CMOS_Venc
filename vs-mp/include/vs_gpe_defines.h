@@ -1,7 +1,7 @@
 /**
 * @file vs_gpe_defines.h
 * @brief common graphic process engine  data type define
-* @details 
+* @details
 * @author visinextek
 * @date 2021-11-30
 * @version v0.1
@@ -55,15 +55,10 @@ typedef enum vs_gpe_cover_type {
 */
 typedef struct vs_gpe_cover_attr {
     vs_gpe_cover_type_e     type;       ///< setting the cover type, rectangle or quadrangle
-    vs_uint32_t             color;      ///< the color value be filled into rectangle for solid quadrangle cover
+    vs_uint32_t             color;      ///< fill color value for solid cover or border color value for hollow cover
     vs_rect_s               rect;       ///< definition for rectangle cover
-
-    /** following member be used defined for quadrangle only,
-     * 1. please ignore if it is a rectangle cover 
-     * 2. must give the value of following attr if there use quadrangle cover
-    */
-    vs_bool_t               solid;      ///< indicate the quadrangle cover is solid or hollow
-    vs_uint32_t             width;      ///< hollow quadrangle cover border width
+    vs_bool_t               solid;      ///< indicate the cover is solid or hollow
+    vs_uint32_t             width;      ///< hollow rectangle or quadrangle cover border width
     vs_point_s              points[4];  ///< the four points define for quadrangle cover
 } vs_gpe_cover_attr_s;
 
@@ -100,7 +95,7 @@ typedef struct vs_gpe_osd_attr {
     vs_uint64_t                phys_addr;    ///< physic address for buffer of osd date store
     vs_uint32_t                stride;       ///< stride for the hardware which will read osd data
     /**
-     * following be used for osd with ARGB1555 format 
+     * following be used for osd with ARGB1555 format
      */
     vs_bool_t                  alpha_extend; ///< enable alpha extend function when covert ARGB1555 to ARGB8888
     vs_uint32_t                ext_alpha0;   ///< one extend alpha value
@@ -108,26 +103,42 @@ typedef struct vs_gpe_osd_attr {
     vs_gpe_revert_s            revert_info;  ///< the color revert control information
 } vs_gpe_osd_attr_s;
 
-///< parameter is illegal */
-#define VS_ERR_GPE_INVALID_PARAM	VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_INVALID_PARAM)
+/**
+* @brief Define an oneline task attribute
+* @details This task contains some operation that vpp need
+*/
+typedef struct vs_gpe_online_attr {
+    vs_bool_t                crop_enable;    ///< enable crop or not
+    struct vs_rect           crop_rect;      ///< rectangle be using for crop
+    vs_bool_t                mirror_enable;  ///< enable mirror
+    vs_bool_t                flip_enable;    ///< enable flip
+    enum vs_gpe_filter_type  filter_type;    ///< filter type be used in hor and ver direction
+    vs_bool_t                aspect_enable;  ///< enable apsect ratio
+    struct vs_aspect_ratio   aspect_ratio;   ///< apsect ratio setting
+} vs_gpe_online_attr_s;
+
+///< parameter is illegal
+#define VS_ERR_GPE_INVALID_PARAM    VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_INVALID_PARAM)
 ///< using a NULL pointer
-#define VS_ERR_GPE_NULL_PTR		VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NULL_PTR)
+#define VS_ERR_GPE_NULL_PTR         VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NULL_PTR)
 ///< using a unexist handle
-#define VS_ERR_GPE_UNEXIST		VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_UNEXIST)
+#define VS_ERR_GPE_UNEXIST          VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_UNEXIST)
 ///< not support
-#define VS_ERR_GPE_NOT_SUPPORT		VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NOT_SUPPORT)
+#define VS_ERR_GPE_NOT_SUPPORT      VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NOT_SUPPORT)
 ///< system is not ready
-#define VS_ERR_GPE_NOT_INITIALIZED	VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NOT_INITIALIZED)
+#define VS_ERR_GPE_NOT_INITIALIZED  VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NOT_INITIALIZED)
 ///< This operation is not allowed
-#define VS_ERR_GPE_NOT_PERM		VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NOT_PERM)
+#define VS_ERR_GPE_NOT_PERM         VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NOT_PERM)
 ///< There is no memory
-#define VS_ERR_GPE_NO_MEMORY		VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NO_MEMORY)
-///< Internal nodes(job or task) are not enough */
-#define VS_ERR_GPE_BUF_EMPTY		VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_BUF_EMPTY)
-///< operation timed out */
-#define VS_ERR_GPE_TIMEOUT		VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_TIMEOUT)
-///< gpe module unexist */
-#define VS_ERR_GPE_DEVICE_UNEXIST		VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_DEVICE_UNEXIST)
+#define VS_ERR_GPE_NO_MEMORY        VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_NO_MEMORY)
+///< Internal nodes(job or task) are not enough
+#define VS_ERR_GPE_BUF_EMPTY        VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_BUF_EMPTY)
+///< address is bad
+#define VS_ERR_GPE_BAD_ADDR         VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_BAD_ADDR)
+///< operation timed out
+#define VS_ERR_GPE_TIMEOUT          VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_TIMEOUT)
+///< gpe module unexist
+#define VS_ERR_GPE_DEVICE_UNEXIST   VS_ERR_CODE(E_MOD_ID_GPE, E_ERR_DEVICE_UNEXIST)
 
 #ifdef __cplusplus
 }

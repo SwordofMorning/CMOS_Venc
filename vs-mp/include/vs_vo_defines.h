@@ -171,6 +171,7 @@ typedef struct vs_vo_dev_attr {
 typedef enum vs_vo_dev_policy_type {
     E_VO_DEV_POLICY_LOWLATENCY = 0,     ///< display frame with low latency
     E_VO_DEV_POLICY_QUICK_DISPLAY,      ///< display background on screen quickly
+    E_VO_DEV_POLICY_LOWLATENCY_VRR,     ///< display frame with variable fps
     E_VO_DEV_POLICY_MAX
 } vs_vo_dev_policy_e;
 

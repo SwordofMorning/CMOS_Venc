@@ -11,8 +11,12 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/gpio.h>
 
-#include "sample_common_mipitx.h"
+#include "sample_common.h"
+#include "vs_mal_regtools.h"
 
 #define DPHY_DIV_UPPER_LIMIT	8000
 #define DPHY_DIV_LOWER_LIMIT	2000
@@ -44,45 +48,45 @@ mipitx_board_setting_s g_board_settings[MIPITX_BOARD_TYPE_MAX] = {
 #ifdef VS_ORION
 	/* MIPITX_BOARD_VS819L_OI01 */
 	{
-		.lcd_reset = 398, /* GPIO110 */
+		.lcd_reset = 110, /* GPIO110 */
 		.pwm_chip = 0,
 		.pwm_pin = 15,
 	},
 	/* MIPITX_BOARD_VS819L_OI02 */
 	{
-		.lcd_reset = 398, /* GPIO110 */
+		.lcd_reset = 110, /* GPIO110 */
 		.pwm_chip = 0,
 		.pwm_pin = 11,
 	},
 #else
 	/* MIPITX_BOARD_VS8X9_CI01 */
 	{
-		.lcd_reset = 410, /* GPIO122 */
+		.lcd_reset = 122, /* GPIO122 */
 		.pwm_chip = 0,
 		.pwm_pin = 6,
 	},
 	/* MIPITX_BOARD_VS8X9_CI02 */
 	{
-		.lcd_reset = 482, /* GPIO2 */
+		.lcd_reset = 2, /* GPIO2 */
 		.pwm_chip = 0,
 		.pwm_pin = 6,
 	},
 	/* MIPITX_BOARD_VS8X9_CI03 */
 	{
-		.lcd_reset = 442, /* GPIO90 */
+		.lcd_reset = 90, /* GPIO90 */
 		.pwm_chip = 0,
 		.pwm_pin = 6,
 	},
 	/* MIPITX_BOARD_VS909 */
 	{
-		.lcd_reset = 420, /* GPIO68 */
+		.lcd_reset = 68, /* GPIO68 */
 		.pwm_chip = 0,
 		.pwm_pin = 6,
 	},
 #endif
 };
 
-int mipitx_board_setting_get(char *argv)
+vs_int32_t mipitx_board_setting_get(char *argv)
 {
 	g_mipitx_board_type = atoi(argv);
 	if (g_mipitx_board_type >= MIPITX_BOARD_TYPE_MAX)
@@ -93,7 +97,8 @@ int mipitx_board_setting_get(char *argv)
 
 /* for mipitx to hdmi chip */
 static void mipitx_timing_get(vs_mipi_tx_config_s *config,
-vs_vo_output_type_e vo_output)
+	vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
+	vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate)
 {
 	switch (vo_output) {
 		case E_VO_OUTPUT_TYPE_1080P60:
@@ -152,34 +157,58 @@ vs_vo_output_type_e vo_output)
 
 			config->video_mode = E_BURST_MODE;
 			break;
+		case E_VO_OUTPUT_TYPE_USER:
+			if (!clk_info || !timing_info)
+				break;
+
+			if (!clk_info->pixel_clk_rate || !mipitx_phy_rate ||
+				!timing_info->hactive || !timing_info->vactive)
+				break;
+
+			config->pixel_clk = clk_info->pixel_clk_rate / 1000;  //kHz
+			config->phy_data_rate = mipitx_phy_rate;
+			config->sync_info.packet_size = timing_info->hactive;
+			config->sync_info.hpw = timing_info->hpw;
+			config->sync_info.hbp = timing_info->hbp;
+			config->sync_info.htotal = timing_info->hactive + timing_info->hpw + timing_info->hbp + timing_info->hfp;
+			config->sync_info.vactive = timing_info->vactive;
+			config->sync_info.vbp = timing_info->vbp;
+			config->sync_info.vfp = timing_info->vfp;
+			config->sync_info.vpw = timing_info->vpw;
+			break;
+
 		default:
 			break;
 	}
 }
 
-static int mipitx_config(vs_vo_output_type_e vo_output)
+static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
+	vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate)
 {
 	vs_int32_t ret;
 	vs_mipi_tx_config_s config = {};
-	int phy_rate = 1000;
-	int mode = E_BURST_MODE;
+
+	// PHY Rate = (pixel_clk_rate × 24 × 1) / 3 / 2(ddr), *2(mbps)
+	int phy_rate = 648;
+	int mode = E_NON_BURST_MODE_SYNC_PULSES;
 
 	config.phy_data_rate = phy_rate;
-	config.pixel_clk = 138000; //138MHz
-	config.lanes = 4;
+	// pixel_clk_rate = 1365 × 990 × 59.95 ≈ 81,000,000 Hz
+	config.pixel_clk = 81000;
+	config.lanes = 3;
 	config.pixel_format = E_MIPI_TX_PIXEL_RGB888;
 	config.tx_mode = E_MIPI_TX_MODE_DSI_VIDEO;
 	config.video_mode = mode;
-	config.sync_info.packet_size = 1080;
-	config.sync_info.hpw = 8;
-	config.sync_info.hbp = 16;
-	config.sync_info.htotal = 1176;
-	config.sync_info.vactive = 1920;
+	config.sync_info.packet_size = 1280;
+	config.sync_info.hpw = 9;
+	config.sync_info.hbp = 13;
+	config.sync_info.htotal = 1365;
+	config.sync_info.vactive = 960;
 	config.sync_info.vbp = 8;
-	config.sync_info.vfp = 15;
-	config.sync_info.vpw = 2;
+	config.sync_info.vfp = 18;
+	config.sync_info.vpw = 4;
 
-	mipitx_timing_get(&config, vo_output);
+	// mipitx_timing_get(&config, vo_output, timing_info, clk_info, mipitx_phy_rate);
 
 	ret = vs_mal_mipi_tx_config(0, &config);
 	if (ret)
@@ -255,673 +284,279 @@ fail:
 
 static int panel_reset(void)
 {
-	char *export = "/sys/class/gpio/export";
-	vs_uint32_t reset_gpio = g_board_settings[g_mipitx_board_type].lcd_reset;
-	char file[64] = {0};
-	char gpio_str[10] = {0};
+	int fd = -1;
+	struct gpiohandle_request req;
+	struct gpiohandle_data data;
+	char chipname[17];
+	unsigned char reset_gpiochip = g_board_settings[g_mipitx_board_type].lcd_reset / 32;
+	vs_uint32_t reset_gpioline = g_board_settings[g_mipitx_board_type].lcd_reset % 32;
 
-	snprintf(gpio_str, sizeof(gpio_str), "%d", reset_gpio);
+	snprintf(chipname, sizeof(chipname), "/dev/gpiochip%d", reset_gpiochip);
 
-
-	FILE *fp_gpio, *fp;
-
-	snprintf(file, sizeof(file), "/sys/class/gpio/gpio%d/direction", reset_gpio);
-	fp_gpio = fopen(file, "w");
-	if (!fp_gpio) {
-		fp = fopen(export, "w");
-		if (!fp) {
-			printf("Failed to open %s\n", export);
-			goto fail;
-		}
-		snprintf(gpio_str, sizeof(gpio_str), "%d", reset_gpio);
-		fwrite(gpio_str, 1, strlen(gpio_str), fp);
-		fclose(fp);
-		fp = NULL;
-
-		fp_gpio = fopen(file, "w");
-		if (!fp_gpio) {
-			printf("Failed to open %s\n", file);
-			goto fail;
-		}
-	}
-
-	fwrite("out", 1, 3, fp_gpio);
-	fclose(fp_gpio);
-	fp_gpio = NULL;
-
-	snprintf(file, sizeof(file), "/sys/class/gpio/gpio%d/value", reset_gpio);
-	fp_gpio = fopen(file, "w");
-	if (!fp_gpio) {
-		printf("Failed to open %s\n", file);
+	fd = open(chipname, O_RDWR);
+	if (fd < 0) {
+		printf("Failed to open %s\n", chipname);
 		goto fail;
 	}
 
-	fwrite("1\n", 1, 2, fp_gpio);
-	fflush(fp_gpio);
+	memset(&req, 0, sizeof(req));
+	req.fd = -1;
+	req.lineoffsets[0] = reset_gpioline;
+	req.flags = GPIOHANDLE_REQUEST_OUTPUT;
+	req.lines = 1;
+	req.default_values[0] = 1;
+
+	if (ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &req) < 0) {
+		printf("Failed to request line handle\n");
+		goto fail;
+	}
+
+	memset(&data, 0, sizeof(data));
+	data.values[0] = 1;
+
+	if (ioctl(req.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) < 0) {
+		printf("Failed to set GPIO value\n");
+		goto fail;
+	}
+
 	usleep(1000);
-	fwrite("0\n", 1, 2, fp_gpio);
-	fflush(fp_gpio);
+	data.values[0] = 0;
+
+	if (ioctl(req.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) < 0) {
+		printf("Failed to set GPIO value\n");
+		goto fail;
+	}
+
 	usleep(1000);
-	fwrite("1\n", 1, 2, fp_gpio);
-	fflush(fp_gpio);
+	data.values[0] = 1;
+
+	if (ioctl(req.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data) < 0) {
+		printf("Failed to set GPIO value\n");
+		goto fail;
+	}
+
 	usleep(120000);
-	fclose(fp_gpio);
+	close(req.fd);
+	close(fd);
 
 	return 0;
 fail:
-	printf("%s failed\n", __func__);
-	if (fp_gpio)
-		fclose(fp_gpio);
-	if (fp)
-		fclose(fp);
+	if(fd >= 0)
+		close(fd);
+	if(req.fd >= 0)
+		close(req.fd);
 	return -1;
+}
+
+static int spi_write_reg(vs_uint8_t reg, vs_uint8_t val)
+{
+    vs_uint8_t tx_buf[2];
+    vs_int32_t ret;
+    
+    // 构造发送缓冲区：[寄存器地址, 数据值]
+    tx_buf[0] = reg;
+    tx_buf[1] = val;
+    
+    // 调用SPI传输API
+    ret = vs_mal_spi_transfer(1, 0, 3, tx_buf, NULL, 2);
+    if (ret != 0) {
+        printf("SPI write reg 0x%02x = 0x%02x failed, ret=%d\n", reg, val, ret);
+        return -1;
+    }
+    
+    return 0;
 }
 
 static int panel_init(vs_bool_t bist)
 {
-	vs_mipi_tx_cmd_write_s wr;
+    int ret = 0;
 
-	//CMD1&CMD3			//Command1
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFB, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBA, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x35, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x36, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB0, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD3, 0x0A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD4, 0x0F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD5, 0x0F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD6, 0x48);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD7, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD9, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0xEE);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFB, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x02, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x40, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x02, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x41, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x02, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x42, 0x00);
-	//Command2 Page0 Power Setting Cmd			//Command2 Page0
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFB, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x01, 0x33);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x04, 0x0C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x05, 0x3A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x06, 0x50);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x07, 0xD0);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0A, 0x0F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0C, 0x06);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0D, 0x6B);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0E, 0x6B);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0F, 0x70);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x10, 0x63);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x11, 0x3C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x12, 0x5A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x13, 0x5A);	//VCOM
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x14, 0x5A);	//VCOM
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x15, 0x60);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x16, 0x15);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x17, 0x15);
-	/*
-	write 0x23  ID
-	write 0x24  ID
-	write 0x25  ID
-	write 0x26  ID
-	write 0x27  ID
-	write 0x28  ID
-	write 0x44  ID
-	write 0x45  ID
-	write 0x46  ID
-	*/
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5B, 0xCA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5C, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5D, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5E, 0x23);		//VCOM/2
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5F, 0x1B);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x60, 0xD5);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x61, 0xF0);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x68, 0x13);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6C, 0xAB);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6D, 0x44);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6E, 0x80);
-	//"Command2 Page4
-	//GIP Timing
-	//Power On/Off setting"		//Command2 Page4
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0x05);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFB, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x00, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x01, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x02, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x03, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x04, 0x38);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x05, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x06, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x07, 0x19);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x08, 0x1B);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x09, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0A, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0B, 0x1D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0C, 0x17);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0D, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0E, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0F, 0x08);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x10, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x11, 0x10);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x12, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x13, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x14, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x15, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x16, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x17, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x18, 0x38);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x19, 0x18);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1A, 0x1A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1B, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1C, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1D, 0x1C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1E, 0x16);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1F, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x20, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x21, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x22, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x23, 0x06);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x24, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x25, 0x0E);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x26, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x27, 0x3F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x54, 0x08);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x55, 0x07);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x56, 0x06);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x58, 0x05);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x59, 0x36);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5A, 0x36);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5B, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5C, 0x64);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5E, 0x27);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5F, 0x28);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x60, 0x29);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x61, 0x2A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x62, 0x18);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x63, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x64, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x66, 0x44);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x67, 0x11);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x68, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x69, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6A, 0x06);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6B, 0x22);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6C, 0x08);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6D, 0x08);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x78, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x79, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7E, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7F, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x80, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x81, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8D, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8E, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8F, 0xC0);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x90, 0x73);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x91, 0x10);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x92, 0x09);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x96, 0x11);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x97, 0x14);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x98, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x99, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9A, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9B, 0x61);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9C, 0x15);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9D, 0x30);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9F, 0x0F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA2, 0xB0);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA7, 0x0A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA9, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAA, 0x70);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAB, 0xDA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAC, 0xFF);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAE, 0xF4);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAF, 0x40);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB0, 0x7F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB1, 0x16);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB2, 0x53);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB3, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB4, 0x2A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB5, 0x3A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB6, 0xF0);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBC, 0x85);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBD, 0xF8);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBE, 0x3B);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBF, 0x13);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC0, 0x77);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC1, 0x77);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC2, 0x77);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC3, 0x77);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC4, 0x77);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC5, 0x77);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC6, 0x77);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC7, 0x77);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC8, 0xAA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC9, 0x2A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCA, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCB, 0xAA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCC, 0x92);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCD, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCE, 0x18);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCF, 0x88);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD0, 0xAA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD1, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD2, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD3, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD6, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD7, 0x31);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD8, 0x7E);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xED, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEE, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEF, 0x70);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFA, 0x03);
-	//Gamma Setting		//Command2 Page0
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFB, 0x01);
-	//GAMMA RED+
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x75, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x76, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x77, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x78, 0x10);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x79, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7A, 0x2C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7B, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7C, 0x43);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7D, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7E, 0x57);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7F, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x80, 0x69);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x81, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x82, 0x7A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x83, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x84, 0x89);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x85, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x86, 0x98);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x87, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x88, 0xC9);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x89, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8A, 0xF2);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8B, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8C, 0x33);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8D, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8E, 0x68);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8F, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x90, 0xBA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x91, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x92, 0xFA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x93, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x94, 0xFC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x95, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x96, 0x35);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x97, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x98, 0x71);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x99, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9A, 0x97);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9B, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9C, 0xCC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9D, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9E, 0xEE);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9F, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA0, 0x16);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA2, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA3, 0x2D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA4, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA5, 0x3D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA6, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA7, 0x4F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA9, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAA, 0x64);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAB, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAC, 0x7C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAD, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAE, 0x9C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAF, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB0, 0xC5);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB1, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB2, 0xCD);
-	//GAMMA RED-
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB3, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB4, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB5, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB6, 0x10);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB7, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB8, 0x2C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB9, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBA, 0x43);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBB, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBC, 0x57);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBD, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBE, 0x69);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBF, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC0, 0x7A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC1, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC2, 0x89);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC3, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC4, 0x98);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC5, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC6, 0xC9);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC7, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC8, 0xF2);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC9, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCA, 0x33);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCB, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCC, 0x68);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCD, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCE, 0xBA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCF, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD0, 0xFA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD1, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD2, 0xFC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD3, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD4, 0x35);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD5, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD6, 0x71);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD7, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD8, 0x97);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD9, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDA, 0xCC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDB, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDC, 0xEE);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDD, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDE, 0x16);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDF, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE0, 0x2D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE1, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE2, 0x3D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE3, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE4, 0x4F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE5, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE6, 0x64);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE7, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE8, 0x7C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE9, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEA, 0x9C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEB, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEC, 0xC5);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xED, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEE, 0xCD);
-	//GAMMA Green+
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEF, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF0, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF1, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF2, 0x10);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF3, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF4, 0x2C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF5, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF6, 0x43);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF7, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF8, 0x57);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF9, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFA, 0x69);
-	//Command2 Page1
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFB, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x00, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x01, 0x7A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x02, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x03, 0x89);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x04, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x05, 0x98);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x06, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x07, 0xC9);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x08, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x09, 0xF2);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0A, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0B, 0x33);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0C, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0D, 0x68);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0E, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x0F, 0xBA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x10, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x11, 0xFA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x12, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x13, 0xFC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x14, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x15, 0x35);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x16, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x17, 0x71);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x18, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x19, 0x97);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1A, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1B, 0xCC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1C, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1D, 0xEE);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1E, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x1F, 0x16);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x20, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x21, 0x2D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x22, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x23, 0x3D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x24, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x25, 0x4F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x26, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x27, 0x64);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x28, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x29, 0x7C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x2A, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x2B, 0x9C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x2D, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x2F, 0xC5);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x30, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x31, 0xCD);
-	//LP		//GAMMA Green-
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x32, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x33, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x34, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x35, 0x10);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x36, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x37, 0x2C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x38, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x39, 0x43);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x3A, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x3B, 0x57);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x3D, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x3F, 0x69);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x40, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x41, 0x7A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x42, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x43, 0x89);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x44, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x45, 0x98);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x46, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x47, 0xC9);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x48, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x49, 0xF2);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x4A, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x4B, 0x33);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x4C, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x4D, 0x68);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x4E, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x4F, 0xBA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x50, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x51, 0xFA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x52, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x53, 0xFC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x54, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x55, 0x35);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x56, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x58, 0x71);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x59, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5A, 0x97);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5B, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5C, 0xCC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5D, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5E, 0xEE);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x5F, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x60, 0x16);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x61, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x62, 0x2D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x63, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x64, 0x3D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x66, 0x4F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x67, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x68, 0x64);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x69, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6A, 0x7C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6B, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6C, 0x9C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6D, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6E, 0xC5);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6F, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x70, 0xCD);
-	//LP		//GAMMA Blue+
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x71, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x72, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x73, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x74, 0x10);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x75, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x76, 0x2C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x77, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x78, 0x43);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x79, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7A, 0x57);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7B, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7C, 0x69);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7D, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7E, 0x7A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x7F, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x80, 0x89);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x81, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x82, 0x98);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x83, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x84, 0xC9);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x85, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x86, 0xF2);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x87, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x88, 0x33);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x89, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8A, 0x68);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8B, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8C, 0xBA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8D, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8E, 0xFA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x8F, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x90, 0xFC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x91, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x92, 0x35);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x93, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x94, 0x71);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x95, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x96, 0x97);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x97, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x98, 0xCC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x99, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9A, 0xEE);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9B, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9C, 0x16);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9D, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9E, 0x2D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x9F, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA0, 0x3D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA2, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA3, 0x4F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA4, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA5, 0x64);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA6, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA7, 0x7C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xA9, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAA, 0x9C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAB, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAC, 0xC5);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAD, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAE, 0xCD);
-	//LP		//GAMMA Blue-
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xAF, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB0, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB1, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB2, 0x10);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB3, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB4, 0x2C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB5, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB6, 0x43);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB7, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB8, 0x57);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xB9, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBA, 0x69);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBB, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBC, 0x7A);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBD, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBE, 0x89);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xBF, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC0, 0x98);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC1, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC2, 0xC9);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC3, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC4, 0xF2);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC5, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC6, 0x33);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC7, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC8, 0x68);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC9, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCA, 0xBA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCB, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCC, 0xFA);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCD, 0x01);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCE, 0xFC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xCF, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD0, 0x35);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD1, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD2, 0x71);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD3, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD4, 0x97);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD5, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD6, 0xCC);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD7, 0x02);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD8, 0xEE);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xD9, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDA, 0x16);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDB, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDC, 0x2D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDD, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDE, 0x3D);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xDF, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE0, 0x4F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE1, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE2, 0x64);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE3, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE4, 0x7C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE5, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE6, 0x9C);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE7, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE8, 0xC5);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xE9, 0x03);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEA, 0xCD);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFB, 0x01);
+    // 初始启动序列
+    ret |= spi_write_reg(0x00, 0x02);
+    ret |= spi_write_reg(0x01, 0x43);
+    usleep(200);
 
-	//bist mode
-	if (bist) {
-		printf("Enter BIST mode\n");
-		INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0x05);
-		INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFB, 0x01);
-		INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEC, 0x21);
-		INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEA, 0xff);
-		INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xEB, 0xFF);
-	}
+    ret |= spi_write_reg(0x01, 0x4b);
+    // 主要配置序列
+    ret |= spi_write_reg(0x02, 0x4f);
+    ret |= spi_write_reg(0x03, 0x02);
+    ret |= spi_write_reg(0x04, 0xd0);
+    ret |= spi_write_reg(0x05, 0x00);
+    ret |= spi_write_reg(0x06, 0x4f);
+    ret |= spi_write_reg(0x07, 0x03);
+    ret |= spi_write_reg(0x08, 0x00);
+    ret |= spi_write_reg(0x09, 0x02);
+    ret |= spi_write_reg(0x0a, 0x49);
+    ret |= spi_write_reg(0x0b, 0x00);
+    ret |= spi_write_reg(0x0c, 0x41);
+    ret |= spi_write_reg(0x0d, 0x00);
+    ret |= spi_write_reg(0x0e, 0x00);
+    ret |= spi_write_reg(0x0f, 0x00);
+    ret |= spi_write_reg(0x10, 0x00);
+    ret |= spi_write_reg(0x11, 0x00);
+    ret |= spi_write_reg(0x12, 0x00);
+    ret |= spi_write_reg(0x13, 0x00);
+    ret |= spi_write_reg(0x14, 0x12);
+    ret |= spi_write_reg(0x15, 0x19);
+    
+    ret |= spi_write_reg(0x16, 0x60); 
+    ret |= spi_write_reg(0x17, 0xe0);  
+    
+    ret |= spi_write_reg(0x18, 0x99);
+    ret |= spi_write_reg(0x19, 0x8f); 
+    ret |= spi_write_reg(0x1a, 0x00);
+    ret |= spi_write_reg(0x1b, 0x7f);
+    ret |= spi_write_reg(0x1c, 0x0e);
+    ret |= spi_write_reg(0x1d, 0x50);
+    ret |= spi_write_reg(0x1e, 0x64);
+    ret |= spi_write_reg(0x1f, 0xf3);
+    ret |= spi_write_reg(0x20, 0x43);
+    ret |= spi_write_reg(0x21, 0x70);
+    ret |= spi_write_reg(0x22, 0x9b);
+    ret |= spi_write_reg(0x23, 0xd1);
+    ret |= spi_write_reg(0x24, 0x1e);
+    ret |= spi_write_reg(0x25, 0x81);
+    ret |= spi_write_reg(0x26, 0xd8);
+    ret |= spi_write_reg(0x27, 0x1b);
+    ret |= spi_write_reg(0x28, 0x5e);
+    ret |= spi_write_reg(0x29, 0x7d);
+    ret |= spi_write_reg(0x2a, 0xa4);
+    ret |= spi_write_reg(0x2b, 0xd3);
+    ret |= spi_write_reg(0x2c, 0x3e);
+    ret |= spi_write_reg(0x2d, 0xd3);
+    ret |= spi_write_reg(0x2e, 0x18);
+    ret |= spi_write_reg(0x2f, 0x52);
+    ret |= spi_write_reg(0x30, 0x69);
+    ret |= spi_write_reg(0x31, 0x94);
+    ret |= spi_write_reg(0x32, 0xa8);
+    ret |= spi_write_reg(0x33, 0xd9);
+    ret |= spi_write_reg(0x34, 0x21);
+    ret |= spi_write_reg(0x35, 0x00);
+    ret |= spi_write_reg(0x36, 0x5d);
+    ret |= spi_write_reg(0x37, 0x78);
+    ret |= spi_write_reg(0x38, 0x59);
+    ret |= spi_write_reg(0x39, 0x80);
+    ret |= spi_write_reg(0x3a, 0x80);
+    ret |= spi_write_reg(0x3b, 0x80);
+    ret |= spi_write_reg(0x3c, 0x80);
+    ret |= spi_write_reg(0x3d, 0x00);
+    ret |= spi_write_reg(0x3e, 0x3b);
+    ret |= spi_write_reg(0x3f, 0x72);
+    ret |= spi_write_reg(0x40, 0x40);
+    ret |= spi_write_reg(0x41, 0xd0);
+    ret |= spi_write_reg(0x42, 0x3d);
+    ret |= spi_write_reg(0x43, 0x30);
+    ret |= spi_write_reg(0x44, 0x02);
+    ret |= spi_write_reg(0x45, 0x7b);
+    ret |= spi_write_reg(0x46, 0x0a);
+    ret |= spi_write_reg(0x47, 0x59);
+    ret |= spi_write_reg(0x48, 0x77);
+    ret |= spi_write_reg(0x49, 0x9a);
+    ret |= spi_write_reg(0x4a, 0xa7);
+    ret |= spi_write_reg(0x4b, 0x0f);
+    ret |= spi_write_reg(0x4c, 0xaf);
+    ret |= spi_write_reg(0x4d, 0x66);
+    ret |= spi_write_reg(0x4e, 0x68);
+    ret |= spi_write_reg(0x4f, 0xff);
+    ret |= spi_write_reg(0x50, 0xff);
+    ret |= spi_write_reg(0x51, 0x92);
+    ret |= spi_write_reg(0x52, 0x93);
+    ret |= spi_write_reg(0x53, 0x0a);
+    ret |= spi_write_reg(0x54, 0x58);
+    ret |= spi_write_reg(0x55, 0x78);
+    ret |= spi_write_reg(0x56, 0x99);
+    ret |= spi_write_reg(0x57, 0xa8);
+    ret |= spi_write_reg(0x58, 0xff);
+    ret |= spi_write_reg(0x59, 0xff);
+    ret |= spi_write_reg(0x5a, 0xff);
+    ret |= spi_write_reg(0x5b, 0xff);
+    ret |= spi_write_reg(0x5c, 0x20);
+    ret |= spi_write_reg(0x5d, 0x06);
+    ret |= spi_write_reg(0x5e, 0x18);
+    ret |= spi_write_reg(0x5f, 0x19);
+    ret |= spi_write_reg(0x60, 0xa8);
+    ret |= spi_write_reg(0x61, 0xf0);
+    ret |= spi_write_reg(0x62, 0x00);
+    ret |= spi_write_reg(0x63, 0x00);
+    ret |= spi_write_reg(0x64, 0x76);
+    ret |= spi_write_reg(0x65, 0xec);
+    ret |= spi_write_reg(0x66, 0x05);
+    ret |= spi_write_reg(0x67, 0x5a);
+    ret |= spi_write_reg(0x68, 0x85);
+    ret |= spi_write_reg(0x69, 0xc0);
+    ret |= spi_write_reg(0x6a, 0xfb);
+    ret |= spi_write_reg(0x6b, 0x36);
+    ret |= spi_write_reg(0x6c, 0x71);
+    ret |= spi_write_reg(0x6d, 0xac);
+    ret |= spi_write_reg(0x6e, 0xe7);
+    ret |= spi_write_reg(0x6f, 0x22);
+    ret |= spi_write_reg(0x70, 0x5d);
+    ret |= spi_write_reg(0x71, 0x00);
+    ret |= spi_write_reg(0x72, 0x1a);
+    ret |= spi_write_reg(0x73, 0x3c);
+    ret |= spi_write_reg(0x74, 0x72);
+    ret |= spi_write_reg(0x75, 0xe4);
+    ret |= spi_write_reg(0x76, 0x05);
+    ret |= spi_write_reg(0x77, 0x5a);
+    ret |= spi_write_reg(0x78, 0x86);
+    ret |= spi_write_reg(0x79, 0xc1);
+    ret |= spi_write_reg(0x7a, 0xfc);
+    ret |= spi_write_reg(0x7b, 0x37);
+    ret |= spi_write_reg(0x7c, 0x72);
+    ret |= spi_write_reg(0x7d, 0xad);
+    ret |= spi_write_reg(0x7e, 0xe8);
+    ret |= spi_write_reg(0x7f, 0x23);
+    ret |= spi_write_reg(0x80, 0x5e);
+    ret |= spi_write_reg(0x81, 0x22);
+    ret |= spi_write_reg(0x82, 0x72);
+    ret |= spi_write_reg(0x83, 0xa7);
+    ret |= spi_write_reg(0x84, 0x73);
+    ret |= spi_write_reg(0x85, 0xa8);
+    ret |= spi_write_reg(0x86, 0x02);
+    ret |= spi_write_reg(0x87, 0x00);
+    ret |= spi_write_reg(0x88, 0x00);
+    ret |= spi_write_reg(0x89, 0x00);
+    ret |= spi_write_reg(0x8a, 0x95);
+    ret |= spi_write_reg(0x8b, 0x00);
+    ret |= spi_write_reg(0x8c, 0x00);
+    ret |= spi_write_reg(0x8d, 0x05);
+    ret |= spi_write_reg(0x8e, 0x98);
+    ret |= spi_write_reg(0x8f, 0x94);
+    ret |= spi_write_reg(0x90, 0x13);
+    ret |= spi_write_reg(0x91, 0x94);
+    ret |= spi_write_reg(0x92, 0xe6);
+    ret |= spi_write_reg(0x93, 0x4a);
+    ret |= spi_write_reg(0x94, 0x0e);
+    ret |= spi_write_reg(0x95, 0xe1);
+    ret |= spi_write_reg(0x96, 0x8a);
+    ret |= spi_write_reg(0x97, 0x8d);
+    ret |= spi_write_reg(0x98, 0x00);
+    ret |= spi_write_reg(0x99, 0x00);
+    ret |= spi_write_reg(0x9a, 0x00);
+    ret |= spi_write_reg(0x9b, 0x00);
+    ret |= spi_write_reg(0x9c, 0x01);
+    ret |= spi_write_reg(0x9d, 0x00);
+    ret |= spi_write_reg(0x9e, 0x00);
+    ret |= spi_write_reg(0x9f, 0x02);
+    ret |= spi_write_reg(0xa0, 0xc0);
+    ret |= spi_write_reg(0xa1, 0x00);
 
-	//package=DCS
-
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xFF, 0x00);
-
-	//write 0x11
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x11, 0x00);
-	usleep(120 * 1000);
-
-	//write 0x29
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x29, 0x00);
-	usleep(50 * 1000);
-
-	return 0;
+	usleep(100);
+	// SOT (Start of Transmission) 配置
+	ret |= spi_write_reg(0x16, 0x60);
+	ret |= spi_write_reg(0x17, 0xe0);
+    
+    if (ret != 0) {
+        printf("Panel initialization failed\n");
+        return -1;
+    }
+    
+    printf("Panel initialization completed successfully\n");
+    return 0;
 }
 
-int sample_common_mipitx_start(vs_vo_output_type_e vo_output)
+vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
+	vs_vo_clk_info_s *clk_info, vs_uint32_t mipitx_phy_rate)
 {
 	vs_int32_t ret;
 
@@ -931,24 +566,29 @@ int sample_common_mipitx_start(vs_vo_output_type_e vo_output)
 		return -1;
 	}
 
-	ret = mipitx_config(vo_output);
+	// system("echo 1 > /sys/class/gpio/gpio419/value");
+
+	system("/root/app/oled_pwr.sh &");
+
+	ret = mipitx_config(vo_output, timing_info, clk_info, mipitx_phy_rate);
 	if (ret) {
 		printf("mipitx_config failed!\n");
 		goto exit;
 	}
 
-	ret = panel_backlight_set(5);
-	if (ret) {
-		printf("panel_backlight_set failed!\n");
-		goto exit;
-	}
+	// ret = panel_backlight_set(5);
+	// if (ret) {
+	// 	printf("panel_backlight_set failed!\n");
+	// 	goto exit;
+	// }
 
-	ret = panel_reset();
-	if (ret) {
-		printf("panel_reset failed!\n");
-		goto exit;
-	}
+	// ret = panel_reset();
+	// if (ret) {
+	// 	printf("panel_reset failed!\n");
+	// 	goto exit;
+	// }
 
+	
 	ret = panel_init(VS_FALSE);
 	if (ret) {
 		printf("panel_init failed!\n");
@@ -966,7 +606,7 @@ exit:
 	return ret;
 }
 
-int sample_common_mipitx_stop()
+vs_int32_t sample_common_mipitx_stop()
 {
 	vs_int32_t ret;
 
@@ -988,7 +628,7 @@ int sample_common_mipitx_stop()
 	return 0;
 }
 
-char *sample_common_mipitx_board_type_get(mipitx_board_type_e board_type)
+vs_char_t *sample_common_mipitx_board_type_get(mipitx_board_type_e board_type)
 {
 	switch (board_type) {
 #ifdef VS_ORION

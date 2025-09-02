@@ -27,7 +27,7 @@ vs_int32_t vs_mal_log_read(vs_char_t *p_buf, vs_uint32_t size, vs_bool_t block);
 
 vs_void_t vs_log(vs_mod_id_e mod_id,
 		vs_uint32_t level,
-		const char *fmt, ...);
+		const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 
 #ifdef __cplusplus
 }

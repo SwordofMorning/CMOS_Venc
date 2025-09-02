@@ -18,8 +18,13 @@
 extern "C" {
 #endif
 
+#define VDEC_CTRL_FPS_TIME_BASE      1000000
+#define VDEC_CTRL_FPS_MIN            1
+#define VDEC_CTRL_FPS_MAX            100
+
 vs_pool_type_e g_vdec_vb_source = VB_SOURCE_PRIVATE;
 
+static vs_uint64_t s_last_send_time = 0;
 
 vs_int32_t sample_common_vdec_vb_pool_init(vs_int32_t vdec_chnnum, sample_vdec_cfg_s *p_sample_vdec_cfg)
 {
@@ -334,15 +339,10 @@ vs_bool_t sample_common_vdec_find_one_frame(sample_vdec_thread_param_s *p_vdec_t
 
         if (find_start == VS_TRUE && find_end == VS_TRUE)
         {
-            //vs_sample_trace("chn %d find jpeg frame start and end! s32ReadLen[%u] len[%u].!\n", p_vdec_thread_param->vdec_chnid, *p_read_len, len);
             find_frame = VS_TRUE;
         }
     }else {
         find_frame = VS_FALSE;
-    }
-
-    if (find_frame == VS_FALSE) {
-        //vs_sample_trace("chn[%d] type[%d] not find one frame s32ReadLen[%u] len[%u]!\n", p_vdec_thread_param->vdec_chnid, p_vdec_thread_param->decode_type, *p_read_len, len);
     }
 
     if (p_vdec_thread_param->ltrp_info.ltrp_dec_enable == VS_TRUE && is_i_frame == VS_TRUE) {
@@ -400,6 +400,18 @@ vs_int32_t sample_common_vdec_stream_send(sample_vdec_thread_param_s *p_vdec_thr
     stream.is_frame_end = VS_FALSE;
     stream.is_stream_end = VS_FALSE;
     stream.is_display = VS_TRUE;
+    if (p_vdec_thread_param->control_fps >= VDEC_CTRL_FPS_MIN
+        && p_vdec_thread_param->control_fps <= VDEC_CTRL_FPS_MAX) {
+        vs_uint64_t time_delta = 0;
+
+        vs_mal_sys_pts_get(&stream.pts);
+        time_delta = stream.pts - s_last_send_time;
+        if (time_delta < (VDEC_CTRL_FPS_TIME_BASE / p_vdec_thread_param->control_fps)) {
+            usleep((VDEC_CTRL_FPS_TIME_BASE / p_vdec_thread_param->control_fps) - time_delta);
+            vs_mal_sys_pts_get(&stream.pts);
+        }
+        s_last_send_time = stream.pts;
+    }
     if(p_vdec_thread_param->input_mode == E_VDEC_INPUT_MODE_CHUNK) {
         ret = sample_common_vdec_segment_mode_send(p_vdec_thread_param, &stream);
     } else {
@@ -438,12 +450,14 @@ vs_void_t *sample_common_vdec_stream_send_task(vs_void_t *arg)
     file_len = ftell(p_file);
     if (file_len <= 0) {
         vs_sample_trace("[chn=%d] file[%s] file_len[%lu] error !\n", p_vdec_thread_param->vdec_chnid, p_vdec_thread_param->input_file, file_len);
+        fclose(p_file);
         return NULL;
     }
     fseek(p_file, 0, SEEK_SET);
     p_buf =  (vs_uint8_t *)malloc(mini_buf_size);
     if (p_buf == NULL) {
         vs_sample_trace("malloc read databuf error, size[%u] \n", mini_buf_size);
+        fclose(p_file);
         return NULL;
     }
 
@@ -539,7 +553,6 @@ vs_int32_t sample_common_vdec_stream_send_stop(vs_int32_t vdec_chnnum, sample_vd
 
     for (i = 0; i < vdec_chnnum; i++) {
         p_vdec_thread_param[i].stop_send_task = VS_TRUE;
-        vs_mal_vdec_chn_stop(p_vdec_thread_param[i].vdec_chnid);
         if (p_vdec_thread_param[i].tid_send != 0) {
             pthread_join(p_vdec_thread_param[i].tid_send, NULL);
             p_vdec_thread_param[i].tid_send = 0;

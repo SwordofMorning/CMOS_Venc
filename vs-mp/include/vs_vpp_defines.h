@@ -37,16 +37,6 @@ typedef enum vs_vpp_chn_mode {
 }vs_vpp_chn_mode_e;
 
 /**
-* @brief Defines the vpp channel process mode.
-* @details
-*/
-typedef enum vs_vpp_chn_proc_mode {
-    E_VPP_CHN_PROC_MODE_VIDEO = 0,      ///< channel process video mode
-    E_VPP_CHN_PROC_MODE_SNAP,           ///< channel process snap mode
-    E_VPP_CHN_PROC_MODE_MAX
-} vs_vpp_chn_proc_mode_e;
-
-/**
 * @brief Defines the modules register vpp.
 * @details
 */

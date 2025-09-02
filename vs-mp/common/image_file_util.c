@@ -268,7 +268,7 @@ static vs_void_t frame_vb_unmap(vs_video_frame_s *p_frame)
 
 vs_int32_t file_to_frame(char *p_filename, vs_video_frame_info_s *g_frame_info)
 {
-	vs_int32_t ret, i, width = g_frame_info->frame.width, height = g_frame_info->frame.height;
+	vs_int32_t ret, i, width, height;
 	vs_bool_t head_flag = VS_FALSE, mam_flap = VS_FALSE;
 	char *pbuf;
 	FILE* p_fp;
@@ -277,6 +277,9 @@ vs_int32_t file_to_frame(char *p_filename, vs_video_frame_info_s *g_frame_info)
 		vs_sample_trace("g_frame_info is NULL!\n");
 		return VS_FAILED;
 	}
+
+	width = g_frame_info->frame.width;
+	height = g_frame_info->frame.height;
 
 	if (!g_frame_info->frame.phys_addr[0]) {
 		vs_sample_trace("g_frame_info->frame phys_addr is null!\n");
@@ -414,7 +417,7 @@ vs_int32_t file_to_frame(char *p_filename, vs_video_frame_info_s *g_frame_info)
 
 vs_int32_t frame_to_file(vs_video_frame_info_s *g_frame_info, char *p_filename)
 {
-	vs_int32_t ret, i, write_cnt, write_rest, write_index, width = g_frame_info->frame.width, height = g_frame_info->frame.height;
+	vs_int32_t ret, i, write_cnt, write_rest, write_index, width, height;
 	vs_bool_t head_flag = VS_FALSE, mam_flap = VS_FALSE;
 	char *pbuf;
 	FILE* p_fp = VS_NULL;
@@ -423,6 +426,9 @@ vs_int32_t frame_to_file(vs_video_frame_info_s *g_frame_info, char *p_filename)
 		vs_sample_trace("g_frame_info is NULL!\n");
 		return VS_FAILED;
 	}
+
+	width = g_frame_info->frame.width;
+	height = g_frame_info->frame.height;
 
 	if (!g_frame_info->frame.phys_addr[0]) {
 		vs_sample_trace("g_frame_info->frame phys_addr is null!\n");

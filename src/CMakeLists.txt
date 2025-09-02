@@ -55,6 +55,8 @@ TARGET_LINK_LIBRARIES(
     audio
     vdec
     aac
+
+    regtools
     
     # System libraries
     dl

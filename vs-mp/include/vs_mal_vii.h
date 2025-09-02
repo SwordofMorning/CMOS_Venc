@@ -264,6 +264,30 @@ vs_int32_t vs_mal_vii_pipe_fpn_attr_set(vs_int32_t vii_pipeid, const vs_vii_pipe
 vs_int32_t vs_mal_vii_pipe_fpn_attr_get(vs_int32_t vii_pipeid, vs_vii_pipe_fpn_attr_s *p_attr);
 
 /**
+* @brief  Set pipe dis attributes by pipe id.
+* @details Set pipe dis attributes by pipe id.
+* @param [in]  vii_pipeid Indicate the pipe id to be given.
+* @param [in]  p_attr The pointer of struct pipe dis attributes, can not be NULL.
+* @return   0 call success.
+* @warning   none0 call failed. see ERROR_CODE for detail.
+* @par
+*
+*/
+vs_int32_t vs_mal_vii_pipe_dis_attr_set(vs_int32_t vii_pipeid, const vs_dis_attr_s *p_attr);
+
+/**
+* @brief  Get pipe dis attributes by pipe id.
+* @details Get pipe dis attributes by pipe id.
+* @param [in]  vii_pipeid Indicate the pipe id to be given.
+* @param [out]  p_attr The pointer of struct pipe dis attributes, can not be NULL.
+* @return   0 call success.
+* @warning   none0 call failed. see ERROR_CODE for detail.
+* @par
+*
+*/
+vs_int32_t vs_mal_vii_pipe_dis_attr_get(vs_int32_t vii_pipeid, vs_dis_attr_s *p_attr);
+
+/**
 * @brief  Start the pipe by pipe id.
 * @details Start the pipe by pipe id.
 * @param [in]  vii_pipeid Indicate the pipe id to be given.
@@ -423,6 +447,67 @@ vs_int32_t vs_mal_vii_pipe_src_get(vs_int32_t vii_pipeid, vs_vii_pipe_source_e *
 */
 vs_int32_t vs_mal_vii_pipe_frame_send(vs_int32_t vii_pipeid,
                                       const vs_video_frame_info_s *p_frame[], vs_uint32_t frame_num,
+                                      vs_int32_t timeout_ms);
+
+/**
+* @brief  Acquire frame from fe by pipe id
+* @details Acquire frame from fe by pipe id
+* @param [in]  vii_pipeid Indicate the pipe id to be given.
+* @param [out] p_frame_info The pointer of struct video frame information, can not be NULL.
+* @param [in]  timeout_ms The timeout value unit of ms.
+* @return   0 call success.
+* @warning   none0 call failed. see ERROR_CODE for detail.
+* @par
+*
+*/
+vs_int32_t vs_mal_vii_pipe_fe_frame_acquire(vs_int32_t vii_pipeid,
+                                            vs_video_frame_info_s *p_frame_info,
+                                            vs_int32_t timeout_ms);
+
+/**
+* @brief  Release fe frame by pipe id
+* @details Release fe frame by pipe id
+* @param [in]  vii_pipeid Indicate the pipe id to be given.
+* @param [in]  p_frame_info The pointer of struct video frame information, can not be NULL.
+* @return   0 call success.
+* @warning   none0 call failed. see ERROR_CODE for detail.
+* @par
+*
+*/
+vs_int32_t vs_mal_vii_pipe_fe_frame_release(vs_int32_t vii_pipeid,
+                                            const vs_video_frame_info_s *p_frame_info);
+
+/**
+* @brief  Send user frame to ispbe by pipe id
+* @details Send user frame to ispbe by pipe id
+* @param [in] vii_pipeid Indicate the pipe id to be given.
+* @param [in] p_frame The pointer of struct pipe frame info array, can not be NULL.
+* @param [in] timeout_ms The timeout value unit of ms.
+* @return   0 call success.
+* @warning   none0 call failed. see ERROR_CODE for detail.
+* @par
+*
+*/
+vs_int32_t vs_mal_vii_pipe_fe_frame_send(vs_int32_t vii_pipeid,
+                                         const vs_video_frame_info_s *p_frame,
+                                         vs_int32_t timeout_ms);
+
+/**
+* @brief  Wait frame by pipe id.
+* @details Wait frame by pipe id.
+* @param [in] vii_pipeid Indicate the pipe id to be given.
+* @param [out] p_frame_id The pointer of frame_id, can not be NULL.
+* @param [out] p_pts The pointer of pts, can not be NULL.
+* @param [in] timeout_ms The timeout value unit of ms.
+* @return   0 call success.
+* @warning   none0 call failed. see ERROR_CODE for detail.
+* @par
+*
+*/
+
+vs_int32_t vs_mal_vii_pipe_frame_wait(vs_int32_t vii_pipeid,
+                                      vs_uint32_t *p_frame_id,
+                                      vs_uint64_t *p_pts,
                                       vs_int32_t timeout_ms);
 
 /**
@@ -824,6 +909,16 @@ vs_int32_t vs_mal_vii_chn_fd_get(vs_int32_t vii_pipeid, vs_int32_t vii_chnid);
 *
 */
 vs_int32_t vs_mal_vii_fd_close(vs_void_t);
+
+/**
+* @brief  vii module reset.
+* @details vii module reset.
+* @return   0 call success.
+* @warning   none0 call failed. see ERROR_CODE for detail.
+* @par
+*
+*/
+vs_int32_t vs_mal_vii_module_reset(vs_void_t);
 
 #ifdef __cplusplus
 }

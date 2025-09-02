@@ -1314,6 +1314,7 @@ vs_int32_t vs_mal_venc_gdr_get(vs_int32_t venc_chnid,
 *
 * @note
 * - Can not set if the channel is not create.
+* - Rotation 90-degree and 270-degree are NOT supportted with H.264/JPEG/MJPEG when frame compress_mode is not E_COMPRESS_MODE_NONE.
 * - Must be called between channel created and destroyed.
 * - Recommend call this after vs_mal_venc_chn_param_get and only modify the properties you need.
 * @par

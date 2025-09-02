@@ -191,6 +191,21 @@ vs_int32_t vs_mal_sys_memconfig_get(const vs_chn_s *p_chn, vs_char_t *p_mmz_name
 */
 vs_int32_t vs_mal_sys_uuid_get(vs_uuid_s *p_uuid);
 
+/**
+* @ingroup	vs_mal_sys_mod_init
+* @brief	sys mod init
+* @details      sys mod init
+* @param [in]   p_list
+* @retval       VS_SUCCESS      no error
+* @retval       others          error happens. see ERROR_CODE for detail.
+* @warning
+* @see
+* @note
+* @par
+*
+*/
+vs_int32_t vs_mal_sys_mod_init(const vs_sys_mod_list_s *p_list);
+
 
 #ifdef __cplusplus
 }

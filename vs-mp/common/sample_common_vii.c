@@ -49,18 +49,6 @@ static void *s_awblib_handle[VII_MAX_PIPE_NUM]= {VS_NULL};
 /*******************************************************
                     mipi attr
 *******************************************************/
-static vs_mipi_rx_dev_attr_s s_os08a10_mipi_4lane_10bit_8m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
-};
-
-static vs_mipi_rx_dev_attr_s s_os08a10_mipi_4lane_10bit_2m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
-};
-
 static vs_mipi_rx_dev_attr_s s_os04a10_mipi_4lane_10bit_4m_linear_attr = {
     .mode = E_MODE_MIPI,
     .mipi_attr.lane_type = E_MIPI_LANE4,
@@ -73,10 +61,94 @@ static vs_mipi_rx_dev_attr_s s_os04a10_mipi_4lane_12bit_4mfull_linear_attr = {
     .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2688, 1520}},
 };
 
-static vs_mipi_rx_dev_attr_s s_ox03c10_mipi_4lane_12bit_2m_wdr4t1_attr = {
+static vs_mipi_rx_dev_attr_s s_os04a10_mipi_4lane_10bit_2m_linear_attr = {
     .mode = E_MODE_MIPI,
     .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 2, 1920, 1280}},
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os04d10_mipi_2lane_10bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os04d10_mipi_2lane_10bit_4m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2560, 1440}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os04d10_mipi_2lane_10bit_1m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 640, 360}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08a20_mipi_4lane_10bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08a20_mipi_4lane_10bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08c10_mipi_4lane_12bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08c10_mipi_4lane_10bit_8m_wdr2t1_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08c10_mipi_4lane_10bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08c10_mipi_4lane_10bit_1m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1280, 720}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08c10_mipi_4lane_10bit_1m_wdr2t1_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1280, 720}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc450ai_mipi_4lane_10bit_4m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2560, 1440}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc450ai_mipi_4lane_10bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc450ai_mipi_4lane_10bit_4mfull_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2688, 1520}},
+};
+
+static vs_mipi_rx_dev_attr_s s_imx334_mipi_4lane_12bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 32, 3840, 2160}},
 };
 
 static vs_mipi_rx_dev_attr_s s_imx347_mipi_4lane_12bit_4mfull_linear_attr = {
@@ -97,16 +169,99 @@ static vs_mipi_rx_dev_attr_s s_imx347_mipi_4lane_12bit_4mfull_wdr2t1_attr = {
     .mipi_attr.crop_info = {VS_TRUE, {0, 20, 2688, 1520}},
 };
 
-static vs_mipi_rx_dev_attr_s s_imx334_mipi_4lane_12bit_8m_linear_attr = {
+static vs_mipi_rx_dev_attr_s s_imx385_mipi_2lane_12bit_2m_linear_attr = {
     .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 32, 3840, 2160}},
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {32, 24, 1920, 1080}},
 };
 
-static vs_mipi_rx_dev_attr_s s_os04a10_mipi_4lane_10bit_2m_linear_attr = {
+static vs_mipi_rx_dev_attr_s s_imx415_mipi_4lane_12bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 37, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_imx415_mipi_4lane_12bit_8m_wdr_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 38, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_imx415_mipi_4lane_12bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 30, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_2m_linear_attr = {
     .mode = E_MODE_MIPI,
     .mipi_attr.lane_type = E_MIPI_LANE4,
     .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_12m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 4000, 3000}},
+};
+
+static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_48m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 8000, 6000}},
+};
+
+static vs_mipi_rx_dev_attr_s s_imx678_mipi_4lane_12bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 33, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_gmax3809_slvds_4lane_12bit_9m_linear_attr = {
+    .mode = E_MODE_SLVDS,
+    .slvds_attr.lane_type = E_SLVDS_LANE4,
+    .slvds_attr.endian_type = E_SLVDS_ENDIAN_BIG,
+    .slvds_attr.sync_code = 0x809DB6AB,
+    .slvds_attr.crop_info = {VS_TRUE, {128, 1, 4096, 2184}},
+};
+
+static vs_mipi_rx_dev_attr_s s_gmax3809_slvds_8lane_12bit_9m_linear_attr = {
+    .mode = E_MODE_SLVDS,
+    .slvds_attr.lane_type = E_SLVDS_LANE8,
+    .slvds_attr.endian_type = E_SLVDS_ENDIAN_BIG,
+    .slvds_attr.sync_code = 0x809DB6AB,
+    .slvds_attr.crop_info = {VS_TRUE, {128, 1, 4096, 2184}},
+};
+
+static vs_mipi_rx_dev_attr_s s_bg1336_mipi_4lane_12bit_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1280, 1024}},
+};
+
+#ifdef EXT_SENSOR
+static vs_mipi_rx_dev_attr_s s_os08a10_mipi_4lane_10bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08a10_mipi_4lane_10bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os08a10_mipi_4lane_10bit_1m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1280, 720}},
 };
 
 static vs_mipi_rx_dev_attr_s s_os04c10_mipi_4lane_12bit_4mfull_linear_attr = {
@@ -115,10 +270,82 @@ static vs_mipi_rx_dev_attr_s s_os04c10_mipi_4lane_12bit_4mfull_linear_attr = {
     .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2688, 1520}},
 };
 
-static vs_mipi_rx_dev_attr_s s_ov9734_mipi_1lane_10bit_1m_linear_attr = {
+static vs_mipi_rx_dev_attr_s s_os04c10_mipi_4lane_10bit_4mfull_wdr2t1_attr = {
     .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE1,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1280, 720}},
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2688, 1520}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os02h10_mipi_2lane_12bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_os02h10_mipi_2lane_12bit_2m_wdr2t1_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc910gs_mipi_4lane_12bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc200ai_mipi_2lane_10bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc535hgs_mipi_4lane_12bit_5m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2432, 2048}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc550xs_mipi_4lane_10bit_8m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc550xs_mipi_4lane_10bit_2m_wdr2t1_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc430ai_mipi_4lane_10bit_4mfull_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2688, 1520}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc430ai_mipi_4lane_10bit_4m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2560, 1440}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc430ai_mipi_4lane_10bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc121at_mipi_2lane_12bit_1m_wdr_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1280, 960}},
+};
+
+static vs_mipi_rx_dev_attr_s s_sc230ai_mipi_2lane_10bit_2m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE2,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
 };
 
 static vs_mipi_rx_dev_attr_s s_imx305_slvds_4lane_12bit_8m_linear_attr = {
@@ -153,52 +380,10 @@ static vs_mipi_rx_dev_attr_s s_imx305_slvds_16lane_12bit_9m_linear_attr = {
     .slvds_attr.crop_info = {VS_TRUE, {0, 19, 4096, 2160}},
 };
 
-static vs_mipi_rx_dev_attr_s s_sc450ai_mipi_4lane_10bit_4m_linear_attr = {
+static vs_mipi_rx_dev_attr_s s_imx385_mipi_4lane_10bit_2m_linear_attr = {
     .mode = E_MODE_MIPI,
     .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2560, 1440}},
-};
-
-static vs_mipi_rx_dev_attr_s s_sc450ai_mipi_4lane_10bit_2m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
-};
-
-static vs_mipi_rx_dev_attr_s s_sc910gs_mipi_4lane_12bit_8m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
-};
-
-static vs_mipi_rx_dev_attr_s s_sc200ai_mipi_2lane_10bit_2m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE2,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
-};
-
-static vs_mipi_rx_dev_attr_s s_sc535hgs_mipi_4lane_12bit_5m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2432, 2048}},
-};
-
-static vs_mipi_rx_dev_attr_s s_sc430ai_mipi_4lane_10bit_4mfull_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2688, 1520}},
-};
-
-static vs_mipi_rx_dev_attr_s s_sc430ai_mipi_4lane_10bit_4m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2560, 1440}},
-};
-
-static vs_mipi_rx_dev_attr_s s_sc430ai_mipi_4lane_10bit_2m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
+    .mipi_attr.crop_info = {VS_TRUE, {32, 24, 1920, 1080}},
 };
 
 static vs_mipi_rx_dev_attr_s s_imx485_mipi_4lane_12bit_8m_linear_attr = {
@@ -219,44 +404,10 @@ static vs_mipi_rx_dev_attr_s s_imx485_mipi_8lane_12bit_8m_linear_attr = {
     .mipi_attr.crop_info = {VS_TRUE, {0, 34, 3840, 2160}},
 };
 
-static vs_mipi_rx_dev_attr_s s_imx385_mipi_2lane_12bit_2m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE2,
-    .mipi_attr.crop_info = {VS_TRUE, {32, 24, 1920, 1080}},
-};
-
-static vs_mipi_rx_dev_attr_s s_sc450ai_mipi_4lane_10bit_4mfull_linear_attr = {
+static vs_mipi_rx_dev_attr_s s_imx686_mipi_4lane_14bit_8m_linear_attr = {
     .mode = E_MODE_MIPI,
     .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2688, 1520}},
-};
-
-static vs_mipi_rx_dev_attr_s s_imx415_mipi_4lane_12bit_8m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 37, 3840, 2160}},
-};
-
-static vs_mipi_rx_dev_attr_s s_imx415_mipi_4lane_12bit_8m_wdr_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 38, 3840, 2160}},
-};
-
-static vs_mipi_rx_dev_attr_s s_gmax3809_slvds_4lane_12bit_9m_linear_attr = {
-    .mode = E_MODE_SLVDS,
-    .slvds_attr.lane_type = E_SLVDS_LANE4,
-    .slvds_attr.endian_type = E_SLVDS_ENDIAN_BIG,
-    .slvds_attr.sync_code = 0x809DB6AB,
-    .slvds_attr.crop_info = {VS_TRUE, {128, 1, 4096, 2176}},
-};
-
-static vs_mipi_rx_dev_attr_s s_gmax3809_slvds_8lane_12bit_9m_linear_attr = {
-    .mode = E_MODE_SLVDS,
-    .slvds_attr.lane_type = E_SLVDS_LANE8,
-    .slvds_attr.endian_type = E_SLVDS_ENDIAN_BIG,
-    .slvds_attr.sync_code = 0x809DB6AB,
-    .slvds_attr.crop_info = {VS_TRUE, {128, 1, 4096, 2176}},
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
 };
 
 static vs_mipi_rx_dev_attr_s s_gc4653_mipi_2lane_10bit_4m_linear_attr = {
@@ -271,66 +422,99 @@ static vs_mipi_rx_dev_attr_s s_gc4023_mipi_2lane_10bit_4m_linear_attr = {
     .mipi_attr.crop_info = {VS_TRUE, {0, 0, 2560, 1440}},
 };
 
-static vs_mipi_rx_dev_attr_s s_imx686_mipi_4lane_14bit_8m_linear_attr = {
+static vs_mipi_rx_dev_attr_s s_ox03c10_mipi_4lane_12bit_2m_wdr4t1_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 2, 1920, 1280}},
+};
+
+static vs_mipi_rx_dev_attr_s s_ov9734_mipi_1lane_10bit_1m_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE1,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1280, 720}},
+};
+
+static vs_mipi_rx_dev_attr_s s_ov50c40_mipi_4lane_10bit_8m_linear_attr = {
     .mode = E_MODE_MIPI,
     .mipi_attr.lane_type = E_MIPI_LANE4,
     .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
 };
+#endif
 
-static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_8m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 3840, 2160}},
-};
 
-static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_2m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1920, 1080}},
-};
-
-static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_12m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 4000, 3000}},
-};
-
-static vs_mipi_rx_dev_attr_s s_imx586_mipi_4lane_10bit_48m_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 8000, 6000}},
-};
-
-static vs_mipi_rx_dev_attr_s s_bg0651_mipi_4lane_12bit_linear_attr = {
-    .mode = E_MODE_MIPI,
-    .mipi_attr.lane_type = E_MIPI_LANE4,
-    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 800, 600}},
-};
 /*******************************************************
                     isp attr
 *******************************************************/
-static vs_isp_comm_attr_s s_os08a10_8m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
+static vs_isp_comm_attr_s s_os04a10_4m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {2560, 1440},
     .frame_rate = 29.9,
     .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
     .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 8,
+    .sensor_mode = 1,
 };
 
-static vs_isp_comm_attr_s s_os08a10_2m_60fps_10bit_linear_isp_attr = {
+static vs_isp_comm_attr_s s_os04a10_4mfull_25fps_12bit_linear_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_os04a10_4mfull_25fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_os04a10_2m_30fps_10bit_linear_isp_attr = {
     .sensor_size = {1920, 1080},
-    .frame_rate = 59.9,
+    .frame_rate = 29.9,
     .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
     .wdr_mode = E_WDR_MODE_NONE,
     .sensor_mode = 0,
 };
 
-static vs_isp_comm_attr_s s_os08a10_8m_60fps_10bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 59.9,
+static vs_isp_comm_attr_s s_os04d10_2m_25fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 24.9,
     .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
     .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 9,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_os04d10_2m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_os04d10_4m_25fps_10bit_linear_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_os04d10_4m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_os04d10_1m_120fps_10bit_linear_isp_attr = {
+    .sensor_size = {640, 360},
+    .frame_rate = 119.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 4,
 };
 
 static vs_isp_comm_attr_s s_os08a20_8m_60fps_10bit_linear_isp_attr = {
@@ -365,6 +549,126 @@ static vs_isp_comm_attr_s s_os08a20_2m_120fps_10bit_linear_isp_attr = {
     .sensor_mode = 2,
 };
 
+static vs_isp_comm_attr_s s_os08a20_8m_30fps_10bit_wdr2to1_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 30,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 4,
+};
+
+static vs_isp_comm_attr_s s_os08c10_8m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_os08c10_8m_30fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_os08c10_2m_120fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 119.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_os08c10_1m_240fps_10bit_linear_isp_attr = {
+    .sensor_size = {1280, 720},
+    .frame_rate = 239.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_os08c10_1m_120fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {1280, 720},
+    .frame_rate = 119.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 4,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_4m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_4m_30fps_10bit_linear_lp_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 7,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_4m_25fps_10bit_linear_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 25,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_4m_25fps_10bit_linear_lp_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 8,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_4m_30fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_4m_25fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 4,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_2m_30fps_10bit_wdr3t1_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_3To1_LINE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_4mfull_25fps_10bit_linear_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 6,
+};
+
+static vs_isp_comm_attr_s s_sc450ai_4mfull_25fps_10bit_wdr2to1_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 7,
+};
+
 static vs_isp_comm_attr_s s_imx334_8m_30fps_12bit_linear_isp_attr = {
     .sensor_size = {3840, 2160},
     .frame_rate = 29.9,
@@ -385,102 +689,6 @@ static vs_isp_comm_attr_s s_imx334_8m_60fps_12bit_linear_isp_attr = {
     .sensor_size = {3840, 2160},
     .frame_rate = 59.9,
     .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 3,
-};
-
-static vs_isp_comm_attr_s s_os04a10_4m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 1,
-};
-
-static vs_isp_comm_attr_s s_os04c10_4mfull_30fps_12bit_linear_isp_attr = {
-    .sensor_size = {2688, 1520},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_os04a10_4mfull_25fps_12bit_linear_isp_attr = {
-    .sensor_size = {2688, 1520},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 2,
-};
-
-static vs_isp_comm_attr_s s_os04a10_4mfull_25fps_10bit_wdr2t1_isp_attr = {
-    .sensor_size = {2688, 1520},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 3,
-};
-
-static vs_isp_comm_attr_s s_ox03c10_2m_60fps_12bit_wdr4t1_isp_attr = {
-    .sensor_size = {1920, 1280},
-    .frame_rate = 59.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_BUILT_IN,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_os04a10_2m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {1920, 1080},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_ov9734_1m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {1280, 720},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_imx305_8m_20fps_12bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 20.0,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_imx305_8l_9m_25fps_12bit_linear_isp_attr = {
-    .sensor_size = {4096, 2160},
-    .frame_rate = 25.0,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 1,
-};
-
-static vs_isp_comm_attr_s s_imx305_8l_9m_30fps_12bit_linear_isp_attr = {
-    .sensor_size = {4096, 2160},
-    .frame_rate = 30.0,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 4,
-};
-
-static vs_isp_comm_attr_s s_imx305_16l_8m_25fps_12bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 25.0,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 2,
-};
-
-static vs_isp_comm_attr_s s_imx305_16l_9m_50fps_12bit_linear_isp_attr = {
-    .sensor_size = {4096, 2160},
-    .frame_rate = 50.0,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
     .wdr_mode = E_WDR_MODE_NONE,
     .sensor_mode = 3,
 };
@@ -525,182 +733,6 @@ static vs_isp_comm_attr_s s_imx347_4mfull_25fps_12bit_wdr2t1_isp_attr = {
     .sensor_mode = 4,
 };
 
-static vs_isp_comm_attr_s s_sc450ai_4m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_sc450ai_4m_25fps_10bit_linear_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 3,
-};
-
-static vs_isp_comm_attr_s s_sc450ai_4m_30fps_10bit_wdr2t1_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 1,
-};
-
-static vs_isp_comm_attr_s s_sc450ai_4m_25fps_10bit_wdr2t1_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 4,
-};
-
-static vs_isp_comm_attr_s s_sc450ai_2m_30fps_10bit_wdr3t1_isp_attr = {
-    .sensor_size = {1920, 1080},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_3To1_LINE,
-    .sensor_mode = 2,
-};
-
-static vs_isp_comm_attr_s s_sc910gs_8m_25fps_12bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_sc200ai_2m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {1920, 1080},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_sc200ai_2m_30fps_10bit_wdr2t1_isp_attr = {
-    .sensor_size = {1920, 1080},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 1,
-};
-
-static vs_isp_comm_attr_s s_sc200ai_2m_25fps_10bit_linear_isp_attr = {
-    .sensor_size = {1920, 1080},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_sc200ai_2m_25fps_10bit_wdr2t1_isp_attr = {
-    .sensor_size = {1920, 1080},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 1,
-};
-
-static vs_isp_comm_attr_s s_sc535hgs_5m_60fps_12bit_linear_isp_attr = {
-    .sensor_size = {2432, 2048},
-    .frame_rate = 59.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_sc430ai_4m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_sc430ai_4mfull_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {2688, 1520},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 1,
-};
-
-static vs_isp_comm_attr_s s_sc430ai_2m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {1920, 1080},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 2,
-};
-
-static vs_isp_comm_attr_s s_sc430ai_4mfull_60fps_10bit_linear_isp_attr = {
-    .sensor_size = {2688, 1520},
-    .frame_rate = 59.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 3,
-};
-
-static vs_isp_comm_attr_s s_sc430ai_4mfull_30fps_10bit_wdr2t1_isp_attr = {
-    .sensor_size = {2688, 1520},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 4,
-};
-
-static vs_isp_comm_attr_s s_sc430ai_4m_30fps_10bit_wdr2t1_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 5,
-};
-
-static vs_isp_comm_attr_s s_sc430ai_2m_30fps_10bit_wdr2t1_isp_attr = {
-    .sensor_size = {1920, 1080},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 6,
-};
-
-static vs_isp_comm_attr_s s_imx485_8m_15fps_12bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 14.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_imx485_4l2c_8m_30fps_12bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 3,
-};
-
-static vs_isp_comm_attr_s s_imx485_8l_8m_30fps_12bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 4,
-};
-
-static vs_isp_comm_attr_s s_os08a10_8m_30fps_10bit_wdr2to1_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 10,
-};
-
 static vs_isp_comm_attr_s s_imx385_2l_2m_25fps_12bit_linear_isp_attr = {
     .sensor_size = {1920, 1080},
     .frame_rate = 24.9,
@@ -715,6 +747,14 @@ static vs_isp_comm_attr_s s_imx415_8m_60fps_12bit_linear_isp_attr = {
     .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
     .wdr_mode = E_WDR_MODE_NONE,
     .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_imx415_8m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 6,
 };
 
 static vs_isp_comm_attr_s s_imx415_8m_30fps_12bit_wdr2to1_isp_attr = {
@@ -741,84 +781,12 @@ static vs_isp_comm_attr_s s_imx415_8m_25fps_12bit_wdr2to1_isp_attr = {
     .sensor_mode = 3,
 };
 
-static vs_isp_comm_attr_s s_sc450ai_4mfull_25fps_10bit_linear_isp_attr = {
-    .sensor_size = {2688, 1520},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 6,
-};
-
-static vs_isp_comm_attr_s s_sc450ai_4mfull_25fps_10bit_wdr2to1_isp_attr = {
-    .sensor_size = {2688, 1520},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
-    .wdr_mode = E_WDR_MODE_2To1_LINE,
-    .sensor_mode = 7,
-};
-
-static vs_isp_comm_attr_s s_gmax3809_9m_25fps_12bit_linear_isp_attr = {
-    .sensor_size = {4096, 2176},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_gmax3809_9m_30fps_12bit_linear_isp_attr = {
-    .sensor_size = {4096, 2176},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 1,
-};
-
-static vs_isp_comm_attr_s s_gc4653_4m_30fps_10bit_linear_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_GRBG,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_gc4023_4m_25fps_10bit_linear_isp_attr = {
-    .sensor_size = {2560, 1440},
-    .frame_rate = 24.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_imx686_8m_30fps_14bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 0,
-};
-
-static vs_isp_comm_attr_s s_imx686_8m_30fps_14bit_linear_isp_pd_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 1,
-};
-
-static vs_isp_comm_attr_s s_imx686_8m_30fps_14bit_qhdr_isp_attr = {
-    .sensor_size = {3840, 2160},
-    .frame_rate = 29.9,
-    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
-    .wdr_mode = E_WDR_MODE_BUILT_IN,
-    .sensor_mode = 2,
-};
-
-static vs_isp_comm_attr_s s_imx686_8m_50fps_10bit_linear_isp_attr = {
-    .sensor_size = {3840, 2160},
+static vs_isp_comm_attr_s s_imx415_2m_50fps_12bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
     .frame_rate = 49.9,
     .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
     .wdr_mode = E_WDR_MODE_NONE,
-    .sensor_mode = 3,
+    .sensor_mode = 5,
 };
 
 static vs_isp_comm_attr_s s_imx586_8m_30fps_10bit_linear_isp_attr = {
@@ -885,67 +853,469 @@ static vs_isp_comm_attr_s s_imx586_2m_120fps_10bit_linear_isp_attr = {
     .sensor_mode = 9,
 };
 
-static vs_isp_comm_attr_s s_bg0651_100fps_12bit_linear_isp_attr = {
-    .sensor_size = {800, 600},
+static vs_isp_comm_attr_s s_imx678_8m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_imx678_8m_60fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 59.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_imx678_8m_30fps_12bit_wdr2to1_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_gmax3809_9m_25fps_12bit_linear_isp_attr = {
+    .sensor_size = {4096, 2184},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_gmax3809_9m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {4096, 2184},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_bg1336_100fps_12bit_linear_isp_attr = {
+    .sensor_size = {1280, 1024},
     .frame_rate = 50,
     .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
     .wdr_mode = E_WDR_MODE_NONE,
     .sensor_mode = 0,
 };
+
+#ifdef EXT_SENSOR
+static vs_isp_comm_attr_s s_os08a10_8m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_os08a10_8m_30fps_10bit_wdr2to1_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_os08a10_8m_60fps_10bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 59.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_os08a10_2m_120fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 119.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_os08a10_1m_174fps_10bit_linear_isp_attr = {
+    .sensor_size = {1280, 720},
+    .frame_rate = 173.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 4,
+};
+
+static vs_isp_comm_attr_s s_os08a10_2m_50fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 49.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 5,
+};
+
+static vs_isp_comm_attr_s s_os08a10_2m_60fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 59.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 6,
+};
+
+static vs_isp_comm_attr_s s_os04c10_4mfull_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_os04c10_4mfull_30fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_os04c10_4mfull_25fps_12bit_linear_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_os04c10_4mfull_25fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 4,
+};
+
+static vs_isp_comm_attr_s s_os02h10_2m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_os02h10_2m_30fps_12bit_wdr2t1_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_sc910gs_8m_25fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc200ai_2m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc200ai_2m_30fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_sc200ai_2m_25fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc200ai_2m_25fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_sc535hgs_5m_60fps_12bit_linear_isp_attr = {
+    .sensor_size = {2432, 2048},
+    .frame_rate = 59.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc550xs_8m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc550xs_2m_30fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_sc430ai_4m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc430ai_4mfull_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_sc430ai_2m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_sc430ai_4mfull_60fps_10bit_linear_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 59.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_sc430ai_4mfull_30fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {2688, 1520},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 4,
+};
+
+static vs_isp_comm_attr_s s_sc430ai_4m_30fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 5,
+};
+
+static vs_isp_comm_attr_s s_sc430ai_2m_30fps_10bit_wdr2t1_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_2To1_LINE,
+    .sensor_mode = 6,
+};
+
+static vs_isp_comm_attr_s s_sc121at_1m_30fps_12bit_wdr3t1_isp_attr = {
+    .sensor_size = {1280, 960},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_BUILT_IN,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc230ai_2m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 30,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_sc230ai_2m_50fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 50,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_sc230ai_2m_60fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 60,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_imx305_16l_9m_50fps_12bit_linear_isp_attr = {
+    .sensor_size = {4096, 2160},
+    .frame_rate = 50.0,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_imx305_8m_20fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 20.0,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_imx305_8l_9m_25fps_12bit_linear_isp_attr = {
+    .sensor_size = {4096, 2160},
+    .frame_rate = 25.0,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_imx305_8l_9m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {4096, 2160},
+    .frame_rate = 30.0,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 4,
+};
+
+static vs_isp_comm_attr_s s_imx305_16l_8m_25fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 25.0,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_imx385_2l_2m_120fps_10bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 119.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_imx385_2l_2m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {1920, 1080},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_imx485_8m_15fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 14.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_imx485_4l2c_8m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_imx485_8l_8m_30fps_12bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 4,
+};
+
+static vs_isp_comm_attr_s s_imx686_8m_30fps_14bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_imx686_8m_30fps_14bit_linear_isp_pd_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 1,
+};
+
+static vs_isp_comm_attr_s s_imx686_8m_30fps_14bit_qhdr_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_BUILT_IN,
+    .sensor_mode = 2,
+};
+
+static vs_isp_comm_attr_s s_imx686_8m_50fps_10bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 49.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 3,
+};
+
+static vs_isp_comm_attr_s s_gc4653_4m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_GRBG,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_gc4023_4m_25fps_10bit_linear_isp_attr = {
+    .sensor_size = {2560, 1440},
+    .frame_rate = 24.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_ox03c10_2m_60fps_12bit_wdr4t1_isp_attr = {
+    .sensor_size = {1920, 1280},
+    .frame_rate = 59.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_BUILT_IN,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_ov9734_1m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {1280, 720},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_BGGR,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_ov50c40_8m_30fps_10bit_linear_isp_attr = {
+    .sensor_size = {3840, 2160},
+    .frame_rate = 29.9,
+    .bayer_format = E_ISP_BAYER_FORMAT_GBRG,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+#endif
+
+
 /*******************************************************
                    sensor cfg
 *******************************************************/
 static sample_sensor_cfg_s s_sensor_cfg[] = {
-    // os08a10
-    {"os08a10", OV_OS08A10_MIPI_8M_30FPS_10BIT, "OV_OS08A10_MIPI_8M_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
-        &s_os08a10_8m_30fps_10bit_linear_isp_attr
-    },
-    {"os08a10", OV_OS08A10_MIPI_2M_60FPS_10BIT, "OV_OS08A10_MIPI_2M_60FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_os08a10_mipi_4lane_10bit_2m_linear_attr,
-        &s_os08a10_2m_60fps_10bit_linear_isp_attr
-    },
-    {"os08a10", OV_OS08A10_MIPI_8M_60FPS_10BIT, "OV_OS08A10_MIPI_8M_60FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
-        &s_os08a10_8m_60fps_10bit_linear_isp_attr
-    },
-    {"os08a10", OV_OS08A10_MIPI_8M_WDR2TO1_30FPS_10BIT, "OV_OS08A10_MIPI_8M_WDR2TO1_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
-        &s_os08a10_8m_30fps_10bit_wdr2to1_isp_attr
-    },
-    // os08a20
-    {"os08a20", OV_OS08A20_MIPI_8M_60FPS_10BIT, "OV_OS08A20_MIPI_8M_60FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
-        &s_os08a20_8m_60fps_10bit_linear_isp_attr
-    },
-    {"os08a20", OV_OS08A20_MIPI_8M_50FPS_10BIT, "OV_OS08A20_MIPI_8M_50FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
-        &s_os08a20_8m_50fps_10bit_linear_isp_attr
-    },
-    {"os08a20", OV_OS08A20_MIPI_8M_30FPS_10BIT, "OV_OS08A20_MIPI_8M_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
-        &s_os08a20_8m_30fps_10bit_linear_isp_attr
-    },
-    {"os08a20", OV_OS08A20_MIPI_2M_120FPS_10BIT, "OV_OS08A20_MIPI_2M_120FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_os08a10_mipi_4lane_10bit_2m_linear_attr,
-        &s_os08a20_2m_120fps_10bit_linear_isp_attr
-    },
     // os04a10
     {"os04a10", OV_OS04A10_MIPI_4M_30FPS_10BIT, "OV_OS04A10_MIPI_4M_30FPS_10BIT",
         E_LANE_MODE_4_2_2,
@@ -971,24 +1341,98 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         &s_os04a10_mipi_4lane_12bit_4mfull_linear_attr,
         &s_os04a10_4mfull_25fps_10bit_wdr2t1_isp_attr
     },
-    {"os04c10", OV_OS04C10_MIPI_4MFULL_30FPS_12BIT, "OV_OS04C10_MIPI_4MFULL_30FPS_12BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_os04c10_mipi_4lane_12bit_4mfull_linear_attr,
-        &s_os04c10_4mfull_30fps_12bit_linear_isp_attr
-    },
-    {"ov9734", OV_OV9734_MIPI_1M_30FPS_10BIT, "OV_OV9734_MIPI_1M_30FPS_10BIT",
+    //os04d10
+    {"os04d10", OV_OS04D10_MIPI_2M_25FPS_10BIT, "OV_OS04D10_MIPI_2M_25FPS_10BIT",
         E_LANE_MODE_2_2_2_2,
         E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_ov9734_mipi_1lane_10bit_1m_linear_attr,
-        &s_ov9734_1m_30fps_10bit_linear_isp_attr
+        &s_os04d10_mipi_2lane_10bit_2m_linear_attr,
+        &s_os04d10_2m_25fps_10bit_linear_isp_attr
     },
-    // ox03c10
-    {"sg2_ox03c10", SG2_OX03C10_MIPI_2M_WDR4TO1_BUILTIN_60FPS_12BIT, "SG2_OX03C10_MIPI_2M_WDR4TO1_BUILTIN_60FPS_12BIT",
+    {"os04d10", OV_OS04D10_MIPI_2M_30FPS_10BIT, "OV_OS04D10_MIPI_2M_30FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os04d10_mipi_2lane_10bit_2m_linear_attr,
+        &s_os04d10_2m_30fps_10bit_linear_isp_attr
+    },
+    {"os04d10", OV_OS04D10_MIPI_4M_25FPS_10BIT, "OV_OS04D10_MIPI_4M_25FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os04d10_mipi_2lane_10bit_4m_linear_attr,
+        &s_os04d10_4m_25fps_10bit_linear_isp_attr
+    },
+    {"os04d10", OV_OS04D10_MIPI_4M_30FPS_10BIT, "OV_OS04D10_MIPI_4M_30FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os04d10_mipi_2lane_10bit_4m_linear_attr,
+        &s_os04d10_4m_30fps_10bit_linear_isp_attr
+    },
+    {"os04d10", OV_OS04D10_MIPI_1M_120FPS_10BIT, "OV_OS04D10_MIPI_1M_120FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os04d10_mipi_2lane_10bit_1m_linear_attr,
+        &s_os04d10_1m_120fps_10bit_linear_isp_attr
+    },
+    // os08a20
+    {"os08a20", OV_OS08A20_MIPI_8M_60FPS_10BIT, "OV_OS08A20_MIPI_8M_60FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a20_mipi_4lane_10bit_8m_linear_attr,
+        &s_os08a20_8m_60fps_10bit_linear_isp_attr
+    },
+    {"os08a20", OV_OS08A20_MIPI_8M_50FPS_10BIT, "OV_OS08A20_MIPI_8M_50FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a20_mipi_4lane_10bit_8m_linear_attr,
+        &s_os08a20_8m_50fps_10bit_linear_isp_attr
+    },
+    {"os08a20", OV_OS08A20_MIPI_8M_30FPS_10BIT, "OV_OS08A20_MIPI_8M_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a20_mipi_4lane_10bit_8m_linear_attr,
+        &s_os08a20_8m_30fps_10bit_linear_isp_attr
+    },
+    {"os08a20", OV_OS08A20_MIPI_2M_120FPS_10BIT, "OV_OS08A20_MIPI_2M_120FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a20_mipi_4lane_10bit_2m_linear_attr,
+        &s_os08a20_2m_120fps_10bit_linear_isp_attr
+    },
+    {"os08a20", OV_OS08A20_MIPI_8M_WDR2TO1_30FPS_10BIT, "OV_OS08A20_MIPI_8M_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a20_mipi_4lane_10bit_8m_linear_attr,
+        &s_os08a20_8m_30fps_10bit_wdr2to1_isp_attr
+    },
+    // os08c10
+    {"os08c10", OV_OS08C10_MIPI_8M_30FPS_12BIT, "OV_OS08C10_MIPI_8M_30FPS_12BIT",
         E_LANE_MODE_4_2_2,
         E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_ox03c10_mipi_4lane_12bit_2m_wdr4t1_attr,
-        &s_ox03c10_2m_60fps_12bit_wdr4t1_isp_attr
+        &s_os08c10_mipi_4lane_12bit_8m_linear_attr,
+        &s_os08c10_8m_30fps_12bit_linear_isp_attr
+    },
+    {"os08c10", OV_OS08C10_MIPI_8M_WDR2TO1_30FPS_10BIT, "OV_OS08C10_MIPI_8M_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08c10_mipi_4lane_10bit_8m_wdr2t1_attr,
+        &s_os08c10_8m_30fps_10bit_wdr2t1_isp_attr
+    },
+    {"os08c10", OV_OS08C10_MIPI_2M_120FPS_10BIT, "OV_OS08C10_MIPI_2M_120FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08c10_mipi_4lane_10bit_2m_linear_attr,
+        &s_os08c10_2m_120fps_10bit_linear_isp_attr
+    },
+    {"os08c10", OV_OS08C10_MIPI_1M_240FPS_10BIT, "OV_OS08C10_MIPI_1M_240FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08c10_mipi_4lane_10bit_1m_linear_attr,
+        &s_os08c10_1m_240fps_10bit_linear_isp_attr
+    },
+    {"os08c10", OV_OS08C10_MIPI_1M_WDR2TO1_120FPS_10BIT, "OV_OS08C10_MIPI_1M_WDR2TO1_120FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08c10_mipi_4lane_10bit_1m_wdr2t1_attr,
+        &s_os08c10_1m_120fps_10bit_wdr2t1_isp_attr
     },
     // sc450ai
     {"sc450ai", SC_450AI_MIPI_4M_30FPS_10BIT, "SC_450AI_MIPI_4M_30FPS_10BIT",
@@ -997,11 +1441,23 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         &s_sc450ai_mipi_4lane_10bit_4m_linear_attr,
         &s_sc450ai_4m_30fps_10bit_linear_isp_attr
     },
+    {"sc450ai", SC_450AI_MIPI_4M_30FPS_10BIT_LP, "SC_450AI_MIPI_4M_30FPS_10BIT_LP",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc450ai_mipi_4lane_10bit_4m_linear_attr,
+        &s_sc450ai_4m_30fps_10bit_linear_lp_isp_attr
+    },
     {"sc450ai", SC_450AI_MIPI_4M_25FPS_10BIT, "SC_450AI_MIPI_4M_25FPS_10BIT",
         E_LANE_MODE_4_2_2,
         E_PIXEL_FORMAT_BAYER_10BPP,
         &s_sc450ai_mipi_4lane_10bit_4m_linear_attr,
         &s_sc450ai_4m_25fps_10bit_linear_isp_attr
+    },
+    {"sc450ai", SC_450AI_MIPI_4M_25FPS_10BIT_LP, "SC_450AI_MIPI_4M_25FPS_10BIT_LP",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc450ai_mipi_4lane_10bit_4m_linear_attr,
+        &s_sc450ai_4m_25fps_10bit_linear_lp_isp_attr
     },
     {"sc450ai", SC_450AI_MIPI_4MFULL_25FPS_10BIT, "SC_450AI_MIPI_4MFULL_25FPS_10BIT",
         E_LANE_MODE_4_2_2,
@@ -1032,88 +1488,6 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         E_PIXEL_FORMAT_BAYER_10BPP,
         &s_sc450ai_mipi_4lane_10bit_4mfull_linear_attr,
         &s_sc450ai_4mfull_25fps_10bit_wdr2to1_isp_attr
-    },
-    // sc910gs
-    {"sc910gs", SC_910GS_MIPI_8M_25FPS_12BIT, "SC_910GS_MIPI_8M_25FPS_12BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_sc910gs_mipi_4lane_12bit_8m_linear_attr,
-        &s_sc910gs_8m_25fps_12bit_linear_isp_attr
-    },
-    // sc200ai
-    {"sc200ai", SC_200AI_MIPI_2L_2M_30FPS_10BIT, "SC_200AI_MIPI_2L_2M_30FPS_10BIT",
-        E_LANE_MODE_2_2_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc200ai_mipi_2lane_10bit_2m_linear_attr,
-        &s_sc200ai_2m_30fps_10bit_linear_isp_attr
-    },
-    {"sc200ai", SC_200AI_MIPI_2L_2M_WDR2TO1_30FPS_10BIT, "SC_200AI_MIPI_2L_2M_WDR2TO1_30FPS_10BIT",
-        E_LANE_MODE_2_2_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc200ai_mipi_2lane_10bit_2m_linear_attr,
-        &s_sc200ai_2m_30fps_10bit_wdr2t1_isp_attr
-    },
-    {"sc200ai", SC_200AI_MIPI_2L_2M_25FPS_10BIT, "SC_200AI_MIPI_2L_2M_25FPS_10BIT",
-        E_LANE_MODE_2_2_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc200ai_mipi_2lane_10bit_2m_linear_attr,
-        &s_sc200ai_2m_25fps_10bit_linear_isp_attr
-    },
-    {"sc200ai", SC_200AI_MIPI_2L_2M_WDR2TO1_25FPS_10BIT, "SC_200AI_MIPI_2L_2M_WDR2TO1_25FPS_10BIT",
-        E_LANE_MODE_2_2_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc200ai_mipi_2lane_10bit_2m_linear_attr,
-        &s_sc200ai_2m_25fps_10bit_wdr2t1_isp_attr
-    },
-    // sc535hgs
-    {"sc535hgs", SC_535HGS_MIPI_4L_5M_60FPS_12BIT, "SC_535HGS_MIPI_4L_5M_60FPS_12BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_sc535hgs_mipi_4lane_12bit_5m_linear_attr,
-        &s_sc535hgs_5m_60fps_12bit_linear_isp_attr
-    },
-    // sc430ai
-    {"sc430ai", SC_430AI_MIPI_4M_30FPS_10BIT, "SC_430AI_MIPI_4M_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc430ai_mipi_4lane_10bit_4m_linear_attr,
-        &s_sc430ai_4m_30fps_10bit_linear_isp_attr
-    },
-    {"sc430ai", SC_430AI_MIPI_4MFULL_30FPS_10BIT, "SC_430AI_MIPI_4MFULL_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc430ai_mipi_4lane_10bit_4mfull_linear_attr,
-        &s_sc430ai_4mfull_30fps_10bit_linear_isp_attr
-    },
-    {"sc430ai", SC_430AI_MIPI_2M_30FPS_10BIT, "SC_430AI_MIPI_2M_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc430ai_mipi_4lane_10bit_2m_linear_attr,
-        &s_sc430ai_2m_30fps_10bit_linear_isp_attr
-    },
-    {"sc430ai", SC_430AI_MIPI_4MFULL_60FPS_10BIT, "SC_430AI_MIPI_4MFULL_60FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc430ai_mipi_4lane_10bit_4mfull_linear_attr,
-        &s_sc430ai_4mfull_60fps_10bit_linear_isp_attr
-    },
-    {"sc430ai", SC_430AI_MIPI_4MFULL_WDR2TO1_30FPS_10BIT, "SC_430AI_MIPI_4MFULL_WDR2TO1_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc430ai_mipi_4lane_10bit_4mfull_linear_attr,
-        &s_sc430ai_4mfull_30fps_10bit_wdr2t1_isp_attr
-    },
-    {"sc430ai", SC_430AI_MIPI_4M_WDR2TO1_30FPS_10BIT, "SC_430AI_MIPI_4M_WDR2TO1_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc430ai_mipi_4lane_10bit_4m_linear_attr,
-        &s_sc430ai_4m_30fps_10bit_wdr2t1_isp_attr
-    },
-    {"sc430ai", SC_430AI_MIPI_2M_WDR2TO1_30FPS_10BIT, "SC_430AI_MIPI_2M_WDR2TO1_30FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_sc430ai_mipi_4lane_10bit_2m_linear_attr,
-        &s_sc430ai_2m_30fps_10bit_wdr2t1_isp_attr
     },
     // imx334
     {"imx334", SONY_IMX334_MIPI_8M_30FPS_12BIT, "SONY_IMX334_MIPI_8M_30FPS_12BIT",
@@ -1165,56 +1539,6 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         &s_imx347_mipi_4lane_12bit_4mfull_wdr2t1_attr,
         &s_imx347_4mfull_25fps_12bit_wdr2t1_isp_attr
     },
-    // imx485
-    {"imx485", SONY_IMX485_MIPI_8M_15FPS_12BIT, "SONY_IMX485_MIPI_8M_15FPS_12BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_imx485_mipi_4lane_12bit_8m_linear_attr,
-        &s_imx485_8m_15fps_12bit_linear_isp_attr
-    },
-    {"imx485", SONY_IMX485_MIPI_4L2C_8M_30FPS_12BIT, "SONY_IMX485_MIPI_4L2C_8M_30FPS_12BIT",
-        E_LANE_MODE_8,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_imx485_mipi_4lane_2ch_12bit_8m_linear_attr,
-        &s_imx485_4l2c_8m_30fps_12bit_linear_isp_attr
-    },
-    {"imx485", SONY_IMX485_MIPI_8L_8M_30FPS_12BIT, "SONY_IMX485_MIPI_8L_8M_30FPS_12BIT",
-        E_LANE_MODE_8,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_imx485_mipi_8lane_12bit_8m_linear_attr,
-        &s_imx485_8l_8m_30fps_12bit_linear_isp_attr
-    },
-    // imx305
-    {"imx305", SONY_IMX305_SLVDS_8M_20FPS_12BIT, "SONY_IMX305_SLVDS_8M_20FPS_12BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_imx305_slvds_4lane_12bit_8m_linear_attr,
-        &s_imx305_8m_20fps_12bit_linear_isp_attr
-    },
-    {"imx305", SONY_IMX305_SLVDS_8L_9M_25FPS_12BIT, "SONY_IMX305_SLVDS_8L_9M_25FPS_12BIT",
-        E_LANE_MODE_8,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_imx305_slvds_8lane_12bit_9m_linear_attr,
-        &s_imx305_8l_9m_25fps_12bit_linear_isp_attr
-    },
-    {"imx305", SONY_IMX305_SLVDS_8L_9M_30FPS_12BIT, "SONY_IMX305_SLVDS_8L_9M_30FPS_12BIT",
-        E_LANE_MODE_8,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_imx305_slvds_8lane_12bit_9m_linear_attr,
-        &s_imx305_8l_9m_30fps_12bit_linear_isp_attr
-    },
-    {"imx305", SONY_IMX305_SLVDS_16L_8M_25FPS_12BIT, "SONY_IMX305_SLVDS_16L_8M_25FPS_12BIT",
-        E_LANE_MODE_16,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_imx305_slvds_16lane_12bit_8m_linear_attr,
-        &s_imx305_16l_8m_25fps_12bit_linear_isp_attr
-    },
-    {"imx305", SONY_IMX305_SLVDS_16L_9M_50FPS_12BIT, "SONY_IMX305_SLVDS_16L_9M_50FPS_12BIT",
-        E_LANE_MODE_16,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_imx305_slvds_16lane_12bit_9m_linear_attr,
-        &s_imx305_16l_9m_50fps_12bit_linear_isp_attr
-    },
     // imx385
     {"imx385", SONY_IMX385_MIPI_2M_25FPS_12BIT, "SONY_IMX385_MIPI_2M_25FPS_12BIT",
         E_LANE_MODE_2_2_2_2,
@@ -1228,6 +1552,12 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         E_PIXEL_FORMAT_BAYER_12BPP,
         &s_imx415_mipi_4lane_12bit_8m_linear_attr,
         &s_imx415_8m_60fps_12bit_linear_isp_attr
+    },
+    {"imx415", SONY_IMX415_MIPI_8M_30FPS_12BIT, "SONY_IMX415_MIPI_8M_30FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx415_mipi_4lane_12bit_8m_linear_attr,
+        &s_imx415_8m_30fps_12bit_linear_isp_attr
     },
     {"imx415", SONY_IMX415_MIPI_8M_WDR2TO1_30FPS_12BIT, "SONY_IMX415_MIPI_8M_WDR2TO1_30FPS_12BIT",
         E_LANE_MODE_4_2_2,
@@ -1247,57 +1577,11 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         &s_imx415_mipi_4lane_12bit_8m_wdr_attr,
         &s_imx415_8m_25fps_12bit_wdr2to1_isp_attr
     },
-    // gmax3809
-    {"gmax3809", GPIXEL_GMAX3809_SLVDS_9M_LINEAR_25FPS_12BIT, "GPIXEL_GMAX3809_SLVDS_9M_LINEAR_25FPS_12BIT",
+    {"imx415", SONY_IMX415_MIPI_2M_BINNING_50FPS_12BIT, "SONY_IMX415_MIPI_2M_BINNING_50FPS_12BIT",
         E_LANE_MODE_4_2_2,
         E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_gmax3809_slvds_4lane_12bit_9m_linear_attr,
-        &s_gmax3809_9m_25fps_12bit_linear_isp_attr
-    },
-    {"gmax3809", GPIXEL_GMAX3809_SLVDS_8L_9M_LINEAR_30FPS_12BIT, "GPIXEL_GMAX3809_SLVDS_8L_9M_LINEAR_30FPS_12BIT",
-        E_LANE_MODE_8,
-        E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_gmax3809_slvds_8lane_12bit_9m_linear_attr,
-        &s_gmax3809_9m_30fps_12bit_linear_isp_attr
-    },
-    // gc4653
-    {"gc4653", GC_GC4653_MIPI_4M_30FPS_10BIT, "GC_GC4653_MIPI_4M_30FPS_10BIT",
-        E_LANE_MODE_2_2_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_gc4653_mipi_2lane_10bit_4m_linear_attr,
-        &s_gc4653_4m_30fps_10bit_linear_isp_attr
-    },
-    // gc4023
-    {"gc4023", GC_GC4023_MIPI_4M_25FPS_10BIT, "GC_GC4023_MIPI_4M_25FPS_10BIT",
-        E_LANE_MODE_2_2_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_gc4023_mipi_2lane_10bit_4m_linear_attr,
-        &s_gc4023_4m_25fps_10bit_linear_isp_attr
-    },
-    // imx686
-    {"imx686", SONY_IMX686_MIPI_8M_30FPS_14BIT, "SONY_IMX686_MIPI_8M_30FPS_14BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_14BPP,
-        &s_imx686_mipi_4lane_14bit_8m_linear_attr,
-        &s_imx686_8m_30fps_14bit_linear_isp_attr
-    },
-    {"imx686", SONY_IMX686_MIPI_8M_30FPS_14BIT_PD, "SONY_IMX686_MIPI_8M_30FPS_14BIT_PD",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_14BPP,
-        &s_imx686_mipi_4lane_14bit_8m_linear_attr,
-        &s_imx686_8m_30fps_14bit_linear_isp_pd_attr,
-    },
-    {"imx686", SONY_IMX686_MIPI_8M_QHDR_30FPS_14BIT, "SONY_IMX686_MIPI_8M_QHDR_30FPS_14BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_14BPP,
-        &s_imx686_mipi_4lane_14bit_8m_linear_attr,
-        &s_imx686_8m_30fps_14bit_qhdr_isp_attr,
-    },
-    {"imx686", SONY_IMX686_MIPI_8M_50FPS_10BIT, "SONY_IMX686_MIPI_8M_50FPS_10BIT",
-        E_LANE_MODE_4_2_2,
-        E_PIXEL_FORMAT_BAYER_10BPP,
-        &s_imx686_mipi_4lane_14bit_8m_linear_attr,
-        &s_imx686_8m_50fps_10bit_linear_isp_attr
+        &s_imx415_mipi_4lane_12bit_2m_linear_attr,
+        &s_imx415_2m_50fps_12bit_linear_isp_attr
     },
     // imx586
     {"imx586", SONY_IMX586_MIPI_8M_30FPS_10BIT, "SONY_IMX586_MIPI_8M_30FPS_10BIT",
@@ -1348,14 +1632,373 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         &s_imx586_mipi_4lane_10bit_2m_linear_attr,
         &s_imx586_2m_120fps_10bit_linear_isp_attr
     },
-    // bg0651
-    {"bg0651", BG0651_MIPI_100FPS_12BIT, "BG0651_MIPI_100FPS_12BIT",
+    {"imx678", SONY_IMX678_MIPI_8M_30FPS_12BIT, "SONY_IMX678_MIPI_8M_30FPS_12BIT",
         E_LANE_MODE_4_2_2,
         E_PIXEL_FORMAT_BAYER_12BPP,
-        &s_bg0651_mipi_4lane_12bit_linear_attr,
-        &s_bg0651_100fps_12bit_linear_isp_attr
+        &s_imx678_mipi_4lane_12bit_8m_linear_attr,
+        &s_imx678_8m_30fps_12bit_linear_isp_attr,
     },
+    {"imx678", SONY_IMX678_MIPI_8M_60FPS_12BIT, "SONY_IMX678_MIPI_8M_60FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx678_mipi_4lane_12bit_8m_linear_attr,
+        &s_imx678_8m_60fps_12bit_linear_isp_attr,
+    },
+    {"imx678", SONY_IMX678_MIPI_8M_WDR2TO1_30FPS_12BIT, "SONY_IMX678_MIPI_8M_WDR2TO1_30FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx678_mipi_4lane_12bit_8m_linear_attr,
+        &s_imx678_8m_30fps_12bit_wdr2to1_isp_attr,
+    },
+    // gmax3809
+    {"gmax3809", GPIXEL_GMAX3809_SLVDS_9M_LINEAR_25FPS_12BIT, "GPIXEL_GMAX3809_SLVDS_9M_LINEAR_25FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_gmax3809_slvds_4lane_12bit_9m_linear_attr,
+        &s_gmax3809_9m_25fps_12bit_linear_isp_attr
+    },
+    {"gmax3809", GPIXEL_GMAX3809_SLVDS_8L_9M_LINEAR_30FPS_12BIT, "GPIXEL_GMAX3809_SLVDS_8L_9M_LINEAR_30FPS_12BIT",
+        E_LANE_MODE_8,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_gmax3809_slvds_8lane_12bit_9m_linear_attr,
+        &s_gmax3809_9m_30fps_12bit_linear_isp_attr
+    },
+    {"bg1336", BG1336_MIPI_50FPS_12BIT, "BG1336_MIPI_100FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_bg1336_mipi_4lane_12bit_linear_attr,
+        &s_bg1336_100fps_12bit_linear_isp_attr
+    },
+#ifdef EXT_SENSOR
+    // os08a10
+    {"os08a10", OV_OS08A10_MIPI_8M_30FPS_10BIT, "OV_OS08A10_MIPI_8M_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
+        &s_os08a10_8m_30fps_10bit_linear_isp_attr
+    },
+    {"os08a10", OV_OS08A10_MIPI_8M_60FPS_10BIT, "OV_OS08A10_MIPI_8M_60FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
+        &s_os08a10_8m_60fps_10bit_linear_isp_attr
+    },
+    {"os08a10", OV_OS08A10_MIPI_8M_WDR2TO1_30FPS_10BIT, "OV_OS08A10_MIPI_8M_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
+        &s_os08a10_8m_30fps_10bit_wdr2to1_isp_attr
+    },
+    {"os08a10", OV_OS08A10_MIPI_2M_120FPS_10BIT, "OV_OS08A10_MIPI_2M_120FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a10_mipi_4lane_10bit_2m_linear_attr,
+        &s_os08a10_2m_120fps_10bit_linear_isp_attr
+    },
+    {"os08a10", OV_OS08A10_MIPI_1M_174FPS_10BIT, "OV_OS08A10_MIPI_1M_174FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a10_mipi_4lane_10bit_1m_linear_attr,
+        &s_os08a10_1m_174fps_10bit_linear_isp_attr
+    },
+    {"os08a10", OV_OS08A10_MIPI_2M_50FPS_10BIT, "OV_OS08A10_MIPI_2M_50FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a10_mipi_4lane_10bit_2m_linear_attr,
+        &s_os08a10_2m_50fps_10bit_linear_isp_attr
+    },
+    {"os08a10", OV_OS08A10_MIPI_2M_60FPS_10BIT, "OV_OS08A10_MIPI_2M_60FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os08a10_mipi_4lane_10bit_2m_linear_attr,
+        &s_os08a10_2m_60fps_10bit_linear_isp_attr
+    },
+    // os04c10
+    {"os04c10", OV_OS04C10_MIPI_4MFULL_30FPS_12BIT, "OV_OS04C10_MIPI_4MFULL_30FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_os04c10_mipi_4lane_12bit_4mfull_linear_attr,
+        &s_os04c10_4mfull_30fps_12bit_linear_isp_attr
+    },
+    {"os04c10", OV_OS04C10_MIPI_4MFULL_WDR2TO1_30FPS_10BIT, "OV_OS04C10_MIPI_4MFULL_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os04c10_mipi_4lane_10bit_4mfull_wdr2t1_attr,
+        &s_os04c10_4mfull_30fps_10bit_wdr2t1_isp_attr
+    },
+    {"os04c10", OV_OS04C10_MIPI_4MFULL_25FPS_12BIT, "OV_OS04C10_MIPI_4MFULL_25FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_os04c10_mipi_4lane_12bit_4mfull_linear_attr,
+        &s_os04c10_4mfull_25fps_12bit_linear_isp_attr
+    },
+    {"os04c10", OV_OS04C10_MIPI_4MFULL_WDR2TO1_25FPS_10BIT, "OV_OS04C10_MIPI_4MFULL_WDR2TO1_25FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_os04c10_mipi_4lane_10bit_4mfull_wdr2t1_attr,
+        &s_os04c10_4mfull_25fps_10bit_wdr2t1_isp_attr
+    },
+    //os02h10
+    {"os02h10", OV_OS02H10_MIPI_2M_LINEAR_30FPS_12BIT, "OV_OS02H10_MIPI_2M_LINEAR_30FPS_12BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_os02h10_mipi_2lane_12bit_2m_linear_attr,
+        &s_os02h10_2m_30fps_12bit_linear_isp_attr
+    },
+    {"os02h10", OV_OS02H10_MIPI_2M_WDR2TO1_30FPS_12BIT, "OV_OS02H10_MIPI_2M_WDR2TO1_30FPS_12BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_os02h10_mipi_2lane_12bit_2m_wdr2t1_attr,
+        &s_os02h10_2m_30fps_12bit_wdr2t1_isp_attr
+    },
+    // sc910gs
+    {"sc910gs", SC_910GS_MIPI_8M_25FPS_12BIT, "SC_910GS_MIPI_8M_25FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_sc910gs_mipi_4lane_12bit_8m_linear_attr,
+        &s_sc910gs_8m_25fps_12bit_linear_isp_attr
+    },
+    // sc200ai
+    {"sc200ai", SC_200AI_MIPI_2L_2M_30FPS_10BIT, "SC_200AI_MIPI_2L_2M_30FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc200ai_mipi_2lane_10bit_2m_linear_attr,
+        &s_sc200ai_2m_30fps_10bit_linear_isp_attr
+    },
+    {"sc200ai", SC_200AI_MIPI_2L_2M_WDR2TO1_30FPS_10BIT, "SC_200AI_MIPI_2L_2M_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc200ai_mipi_2lane_10bit_2m_linear_attr,
+        &s_sc200ai_2m_30fps_10bit_wdr2t1_isp_attr
+    },
+    {"sc200ai", SC_200AI_MIPI_2L_2M_25FPS_10BIT, "SC_200AI_MIPI_2L_2M_25FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc200ai_mipi_2lane_10bit_2m_linear_attr,
+        &s_sc200ai_2m_25fps_10bit_linear_isp_attr
+    },
+    {"sc200ai", SC_200AI_MIPI_2L_2M_WDR2TO1_25FPS_10BIT, "SC_200AI_MIPI_2L_2M_WDR2TO1_25FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc200ai_mipi_2lane_10bit_2m_linear_attr,
+        &s_sc200ai_2m_25fps_10bit_wdr2t1_isp_attr
+    },
+    // sc535hgs
+    {"sc535hgs", SC_535HGS_MIPI_4L_5M_60FPS_12BIT, "SC_535HGS_MIPI_4L_5M_60FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_sc535hgs_mipi_4lane_12bit_5m_linear_attr,
+        &s_sc535hgs_5m_60fps_12bit_linear_isp_attr
+    },
+    // sc550xs
+    {"sc550xs", SC_550XS_MIPI_8M_30FPS_10BIT, "SC_550XS_MIPI_8M_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc550xs_mipi_4lane_10bit_8m_linear_attr,
+        &s_sc550xs_8m_30fps_10bit_linear_isp_attr
+    },
+    {"sc550xs", SC_550XS_MIPI_2M_WDR2TO1_30FPS_10BIT, "SC_550XS_MIPI_2M_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc550xs_mipi_4lane_10bit_2m_wdr2t1_attr,
+        &s_sc550xs_2m_30fps_10bit_wdr2t1_isp_attr
+    },
+    // sc430ai
+    {"sc430ai", SC_430AI_MIPI_4M_30FPS_10BIT, "SC_430AI_MIPI_4M_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc430ai_mipi_4lane_10bit_4m_linear_attr,
+        &s_sc430ai_4m_30fps_10bit_linear_isp_attr
+    },
+    {"sc430ai", SC_430AI_MIPI_4MFULL_30FPS_10BIT, "SC_430AI_MIPI_4MFULL_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc430ai_mipi_4lane_10bit_4mfull_linear_attr,
+        &s_sc430ai_4mfull_30fps_10bit_linear_isp_attr
+    },
+    {"sc430ai", SC_430AI_MIPI_2M_30FPS_10BIT, "SC_430AI_MIPI_2M_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc430ai_mipi_4lane_10bit_2m_linear_attr,
+        &s_sc430ai_2m_30fps_10bit_linear_isp_attr
+    },
+    {"sc430ai", SC_430AI_MIPI_4MFULL_60FPS_10BIT, "SC_430AI_MIPI_4MFULL_60FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc430ai_mipi_4lane_10bit_4mfull_linear_attr,
+        &s_sc430ai_4mfull_60fps_10bit_linear_isp_attr
+    },
+    {"sc430ai", SC_430AI_MIPI_4MFULL_WDR2TO1_30FPS_10BIT, "SC_430AI_MIPI_4MFULL_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc430ai_mipi_4lane_10bit_4mfull_linear_attr,
+        &s_sc430ai_4mfull_30fps_10bit_wdr2t1_isp_attr
+    },
+    {"sc430ai", SC_430AI_MIPI_4M_WDR2TO1_30FPS_10BIT, "SC_430AI_MIPI_4M_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc430ai_mipi_4lane_10bit_4m_linear_attr,
+        &s_sc430ai_4m_30fps_10bit_wdr2t1_isp_attr
+    },
+    {"sc430ai", SC_430AI_MIPI_2M_WDR2TO1_30FPS_10BIT, "SC_430AI_MIPI_2M_WDR2TO1_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc430ai_mipi_4lane_10bit_2m_linear_attr,
+        &s_sc430ai_2m_30fps_10bit_wdr2t1_isp_attr
+    },
+    // sc121at
+    {"sc121at", SC_121AT_MIPI_1M_WDR3TO1_BUILTIN_30FPS_12BIT, "SC_121AT_MIPI_1M_WDR3TO1_BUILTIN_30FPS_12BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_sc121at_mipi_2lane_12bit_1m_wdr_attr,
+        &s_sc121at_1m_30fps_12bit_wdr3t1_isp_attr
+    },
+    // sc230ai
+    {"sc230ai", SC_230AI_MIPI_2M_LINEAR_30FPS_10BIT, "SC_230AI_MIPI_2M_LINEAR_30FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc230ai_mipi_2lane_10bit_2m_linear_attr,
+        &s_sc230ai_2m_30fps_10bit_linear_isp_attr
+    },
+    {"sc230ai_master", SC_230AI_MIPI_2M_LINEAR_50FPS_10BIT, "SC_230AI_MIPI_2M_LINEAR_50FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc230ai_mipi_2lane_10bit_2m_linear_attr,
+        &s_sc230ai_2m_50fps_10bit_linear_isp_attr
+    },
+    {"sc230ai_master", SC_230AI_MIPI_2M_LINEAR_60FPS_10BIT, "SC_230AI_MIPI_2M_LINEAR_60FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_sc230ai_mipi_2lane_10bit_2m_linear_attr,
+        &s_sc230ai_2m_60fps_10bit_linear_isp_attr
+    },
+    // imx305
+    {"imx305", SONY_IMX305_SLVDS_8M_20FPS_12BIT, "SONY_IMX305_SLVDS_8M_20FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx305_slvds_4lane_12bit_8m_linear_attr,
+        &s_imx305_8m_20fps_12bit_linear_isp_attr
+    },
+    {"imx305", SONY_IMX305_SLVDS_8L_9M_25FPS_12BIT, "SONY_IMX305_SLVDS_8L_9M_25FPS_12BIT",
+        E_LANE_MODE_8,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx305_slvds_8lane_12bit_9m_linear_attr,
+        &s_imx305_8l_9m_25fps_12bit_linear_isp_attr
+    },
+    {"imx305", SONY_IMX305_SLVDS_8L_9M_30FPS_12BIT, "SONY_IMX305_SLVDS_8L_9M_30FPS_12BIT",
+        E_LANE_MODE_8,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx305_slvds_8lane_12bit_9m_linear_attr,
+        &s_imx305_8l_9m_30fps_12bit_linear_isp_attr
+    },
+    {"imx305", SONY_IMX305_SLVDS_16L_8M_25FPS_12BIT, "SONY_IMX305_SLVDS_16L_8M_25FPS_12BIT",
+        E_LANE_MODE_16,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx305_slvds_16lane_12bit_8m_linear_attr,
+        &s_imx305_16l_8m_25fps_12bit_linear_isp_attr
+    },
+    {"imx305", SONY_IMX305_SLVDS_16L_9M_50FPS_12BIT, "SONY_IMX305_SLVDS_16L_9M_50FPS_12BIT",
+        E_LANE_MODE_16,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx305_slvds_16lane_12bit_9m_linear_attr,
+        &s_imx305_16l_9m_50fps_12bit_linear_isp_attr
+    },
+    // imx385
+    {"imx385", SONY_IMX385_MIPI_2M_120FPS_10BIT, "SONY_IMX385_MIPI_2M_120FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_imx385_mipi_4lane_10bit_2m_linear_attr,
+        &s_imx385_2l_2m_120fps_10bit_linear_isp_attr
+    },
+    {"imx385", SONY_IMX385_MIPI_2M_30FPS_12BIT, "SONY_IMX385_MIPI_2M_30FPS_12BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx385_mipi_2lane_12bit_2m_linear_attr,
+        &s_imx385_2l_2m_30fps_12bit_linear_isp_attr
+    },
+    // imx485
+    {"imx485", SONY_IMX485_MIPI_8M_15FPS_12BIT, "SONY_IMX485_MIPI_8M_15FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx485_mipi_4lane_12bit_8m_linear_attr,
+        &s_imx485_8m_15fps_12bit_linear_isp_attr
+    },
+    {"imx485", SONY_IMX485_MIPI_4L2C_8M_30FPS_12BIT, "SONY_IMX485_MIPI_4L2C_8M_30FPS_12BIT",
+        E_LANE_MODE_8,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx485_mipi_4lane_2ch_12bit_8m_linear_attr,
+        &s_imx485_4l2c_8m_30fps_12bit_linear_isp_attr
+    },
+    {"imx485", SONY_IMX485_MIPI_8L_8M_30FPS_12BIT, "SONY_IMX485_MIPI_8L_8M_30FPS_12BIT",
+        E_LANE_MODE_8,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_imx485_mipi_8lane_12bit_8m_linear_attr,
+        &s_imx485_8l_8m_30fps_12bit_linear_isp_attr
+    },
+    // imx686
+    {"imx686", SONY_IMX686_MIPI_8M_30FPS_14BIT, "SONY_IMX686_MIPI_8M_30FPS_14BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_14BPP,
+        &s_imx686_mipi_4lane_14bit_8m_linear_attr,
+        &s_imx686_8m_30fps_14bit_linear_isp_attr
+    },
+    {"imx686", SONY_IMX686_MIPI_8M_30FPS_14BIT_PD, "SONY_IMX686_MIPI_8M_30FPS_14BIT_PD",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_14BPP,
+        &s_imx686_mipi_4lane_14bit_8m_linear_attr,
+        &s_imx686_8m_30fps_14bit_linear_isp_pd_attr,
+    },
+    {"imx686", SONY_IMX686_MIPI_8M_QHDR_30FPS_14BIT, "SONY_IMX686_MIPI_8M_QHDR_30FPS_14BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_14BPP,
+        &s_imx686_mipi_4lane_14bit_8m_linear_attr,
+        &s_imx686_8m_30fps_14bit_qhdr_isp_attr,
+    },
+    {"imx686", SONY_IMX686_MIPI_8M_50FPS_10BIT, "SONY_IMX686_MIPI_8M_50FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_imx686_mipi_4lane_14bit_8m_linear_attr,
+        &s_imx686_8m_50fps_10bit_linear_isp_attr
+    },
+    // gc4653
+    {"gc4653", GC_GC4653_MIPI_4M_30FPS_10BIT, "GC_GC4653_MIPI_4M_30FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_gc4653_mipi_2lane_10bit_4m_linear_attr,
+        &s_gc4653_4m_30fps_10bit_linear_isp_attr
+    },
+    // gc4023
+    {"gc4023", GC_GC4023_MIPI_4M_25FPS_10BIT, "GC_GC4023_MIPI_4M_25FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_gc4023_mipi_2lane_10bit_4m_linear_attr,
+        &s_gc4023_4m_25fps_10bit_linear_isp_attr
+    },
+    // ox03c10
+    {"sg2_ox03c10", SG2_OX03C10_MIPI_2M_WDR4TO1_BUILTIN_60FPS_12BIT, "SG2_OX03C10_MIPI_2M_WDR4TO1_BUILTIN_60FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_ox03c10_mipi_4lane_12bit_2m_wdr4t1_attr,
+        &s_ox03c10_2m_60fps_12bit_wdr4t1_isp_attr
+    },
+    // ov9734
+    {"ov9734", OV_OV9734_MIPI_1M_30FPS_10BIT, "OV_OV9734_MIPI_1M_30FPS_10BIT",
+        E_LANE_MODE_2_2_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_ov9734_mipi_1lane_10bit_1m_linear_attr,
+        &s_ov9734_1m_30fps_10bit_linear_isp_attr
+    },
+
+    // ov50c40
+    {"ov50c40", OV_OS50C40_MIPI_8M_30FPS_10BIT, "OV_OS50C40_MIPI_8M_30FPS_10BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_10BPP,
+        &s_ov50c40_mipi_4lane_10bit_8m_linear_attr,
+        &s_ov50c40_8m_30fps_10bit_linear_isp_attr
+    },
+#endif
 };
+
 
 /*******************************************************
                 static sensor cfg function
@@ -1459,7 +2102,7 @@ static vs_void_t sample_common_vii_mipirx_attr_get(
         }
     }
 
-    memcpy(mipi_rx_attr, &s_os08a10_mipi_4lane_10bit_8m_linear_attr,
+    memcpy(mipi_rx_attr, &s_os04a10_mipi_4lane_10bit_4m_linear_attr,
             sizeof(vs_mipi_rx_dev_attr_s));
 }
 
@@ -1602,7 +2245,14 @@ static vs_void_t sample_common_vii_delay_get(
     case SONY_IMX415_MIPI_8M_WDR2TO1_30FPS_12BIT:
         *p_delay_ms = 500;
         break;
-
+#ifdef EXT_SENSOR
+    case SC_121AT_MIPI_1M_WDR3TO1_BUILTIN_30FPS_12BIT:
+        *p_delay_ms = 140;
+        break;
+    case OV_OS02H10_MIPI_2M_WDR2TO1_30FPS_12BIT:
+        *p_delay_ms = 150;
+        break;
+#endif
     default:
         *p_delay_ms = 0;
         break;
@@ -1621,7 +2271,7 @@ static vs_void_t sample_common_vii_isp_attr_get(
         }
     }
 
-    memcpy(isp_attr, &s_os08a10_8m_30fps_10bit_linear_isp_attr,
+    memcpy(isp_attr, &s_os04a10_4m_30fps_10bit_linear_isp_attr,
             sizeof(vs_isp_comm_attr_s));
 }
 
@@ -1651,7 +2301,9 @@ static vs_void_t sample_common_vii_pipe_cfg_get(
                 (vs_uint32_t)s_sensor_cfg[i].p_isp_attr->frame_rate + 1;
 
             switch (sensor_type) {
+#ifdef EXT_SENSOR
             case SONY_IMX305_SLVDS_16L_9M_50FPS_12BIT:
+#endif
             case SONY_IMX586_MIPI_8M_30FPS_10BIT:
             case SONY_IMX586_MIPI_12M_30FPS_10BIT:
                 pipe_cfg->pipe_attr.real_fps = 48;
@@ -1662,6 +2314,9 @@ static vs_void_t sample_common_vii_pipe_cfg_get(
                 break;
             case OV_OS08A20_MIPI_8M_30FPS_10BIT:
                 pipe_cfg->pipe_attr.real_fps = 50;
+                break;
+            case SONY_IMX678_MIPI_8M_WDR2TO1_30FPS_12BIT:
+                pipe_cfg->pipe_attr.real_fps = 60;
                 break;
             default:
                 break;
@@ -2079,7 +2734,11 @@ static vs_int32_t sample_common_isp_start(vs_int32_t vii_pipe,
     if (vs_mal_isp_nr3d_attr_get(vii_pipe, &nr3d_attr) == VS_SUCCESS) {
         nr3d_attr.enable = g_nr_3d;
         vs_sample_trace("nr3d enable(%d) pipe: %d\n", g_nr_3d, vii_pipe);
-        vs_mal_isp_nr3d_attr_set(vii_pipe, &nr3d_attr);
+        rc = vs_mal_isp_nr3d_attr_set(vii_pipe, &nr3d_attr);
+        if (rc != VS_SUCCESS) {
+            vs_sample_trace("nr3d attr set fail pipe: %d\n", vii_pipe);
+            goto exit0;
+        }
     }
 
     rc = sample_common_isp_run(vii_pipe);
@@ -2149,6 +2808,14 @@ vs_int32_t sample_common_vii_pipe_start(vs_char_t *sensor_name,
         goto exit0;
     }
 
+    if (pipe_cfg->precrop_info.enable == VS_TRUE) {
+        ret = vs_mal_vii_pipe_precrop_set(pipe_cfg->pipe_id, &pipe_cfg->precrop_info);
+        if (ret != VS_SUCCESS) {
+            vs_sample_trace("vs_mal_vii_pipe_precrop_set failed, ret: 0x%x.\n", ret);
+            goto exit0;
+        }
+    }
+
 	if ((online_offline_attr.mode[pipe_cfg->pipe_id] == E_VII_ONLINE_VPP_ONLINE ||
         online_offline_attr.mode[pipe_cfg->pipe_id] == E_VII_ONLINE_VPP_OFFLINE) &&
         (pipe_cfg->pipe_param.mode == E_VII_PIPE_ADVANCE_MODE_SUB_FRAME_LAST ||
@@ -2166,6 +2833,14 @@ vs_int32_t sample_common_vii_pipe_start(vs_char_t *sensor_name,
         ret = vs_mal_vii_pipe_fpn_attr_set(pipe_cfg->pipe_id, &pipe_cfg->fpn_attr);
         if (ret != VS_SUCCESS) {
             vs_sample_trace("pipe %d vs_mal_vii_pipe_fpn_attr_set failed, ret: 0x%x.\n", pipe_cfg->pipe_id, ret);
+            goto exit0;
+        }
+    }
+
+    if (pipe_cfg->vc_config_enable == VS_TRUE) {
+        ret = vs_mal_vii_pipe_vc_set(pipe_cfg->pipe_id, &pipe_cfg->vc_attr);
+        if (ret != VS_SUCCESS) {
+            vs_sample_trace("pipe %d vs_mal_vii_pipe_vc_set failed, ret: 0x%x.\n", pipe_cfg->pipe_id, ret);
             goto exit0;
         }
     }
@@ -2232,18 +2907,7 @@ vs_void_t sample_common_vii_pipe_stop(sample_vii_pipe_cfg_s *pipe_cfg)
 {
     vs_int32_t i, j;
     vs_uint32_t ret;
-#ifndef VS_NO_ISP
-    if (pipe_cfg->pipe_attr.bypass_mode != E_VII_PIPE_BYPASS_ALL &&
-        pipe_cfg->pipe_attr.bypass_mode != E_VII_PIPE_BYPASS_FE &&
-        pipe_cfg->firmware_bypass != VS_TRUE) {
-        sample_common_isp_stop(pipe_cfg->pipe_id);
-    } else if (pipe_cfg->pipe_attr.bypass_mode == E_VII_PIPE_BYPASS_FE) {
-        ret = vs_mal_isp_deinit(pipe_cfg->pipe_id);
-        if (ret != VS_SUCCESS) {
-            vs_sample_trace("vs_mal_isp_deinit error, ret: 0x%x.\n", ret);
-        }
-    }
-#endif
+
     for (j = pipe_cfg->ext_chn_num - 1; j >= 0; j--) {
         sample_vii_ext_chn_cfg_s *chn_cfg = &pipe_cfg->ext_chn_cfg[j];
         sample_common_vii_ext_chn_disable(pipe_cfg->pipe_id, chn_cfg->chn_id);
@@ -2263,6 +2927,19 @@ vs_void_t sample_common_vii_pipe_stop(sample_vii_pipe_cfg_s *pipe_cfg)
     if (ret != VS_SUCCESS) {
         vs_sample_trace("vii pipe %d destroy failed, ret: 0x%x.\n", pipe_cfg->pipe_id, ret);
     }
+
+#ifndef VS_NO_ISP
+    if (pipe_cfg->pipe_attr.bypass_mode != E_VII_PIPE_BYPASS_ALL &&
+        pipe_cfg->pipe_attr.bypass_mode != E_VII_PIPE_BYPASS_FE &&
+        pipe_cfg->firmware_bypass != VS_TRUE) {
+        sample_common_isp_stop(pipe_cfg->pipe_id);
+    } else if (pipe_cfg->pipe_attr.bypass_mode == E_VII_PIPE_BYPASS_FE) {
+        ret = vs_mal_isp_deinit(pipe_cfg->pipe_id);
+        if (ret != VS_SUCCESS) {
+            vs_sample_trace("vs_mal_isp_deinit error, ret: 0x%x.\n", ret);
+        }
+    }
+#endif
 }
 
 static vs_int32_t sample_common_vii_route_start(sample_vii_route_cfg_s *route_cfg)
