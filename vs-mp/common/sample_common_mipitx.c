@@ -358,7 +358,7 @@ static int spi_write_reg(vs_uint8_t reg, vs_uint8_t val)
     tx_buf[1] = val;
     
     // 调用SPI传输API
-    ret = vs_mal_spi_transfer(1, 0, 3, tx_buf, NULL, 2);
+    ret = vs_mal_spi_transfer(1, 0, 0, tx_buf, NULL, 2);
     if (ret != 0) {
         printf("SPI write reg 0x%02x = 0x%02x failed, ret=%d\n", reg, val, ret);
         return -1;
