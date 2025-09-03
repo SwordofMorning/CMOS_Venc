@@ -24,6 +24,12 @@
 #define FBIOGET_SCREEN_ORIGIN_VS_FB _IOR('F', 0x104, struct fb_point)
 #define FBIOPUT_LAYER_INFO          _IOW('F', 0x105, struct fb_layer_info)
 #define FBIOGET_LAYER_INFO          _IOR('F', 0x106, struct fb_layer_info)
+#define FBIO_REFRESH                _IOW('F', 0x107, struct fb_buffer)
+
+// 垂直同步相关定义
+#ifndef FBIO_WAITFORVSYNC
+#define FBIO_WAITFORVSYNC           _IOW('F', 0x20, __u32)
+#endif
 
 // 厂商特定的结构体定义
 struct fb_point {
@@ -37,6 +43,18 @@ struct fb_layer_info {
     int canvas_width;
     int canvas_height;
     int mask;
+};
+
+struct fb_buffer {
+    struct fb_surface {
+        uint32_t phy_addr;
+        uint32_t width;
+        uint32_t height;
+        uint32_t pitch;
+    } canvas;
+    struct fb_rect {
+        int x, y, w, h;
+    } update_rect;
 };
 
 #define FB_LAYER_MASK_BUFMODE    0x01
@@ -67,6 +85,12 @@ typedef struct {
     long screensize;            // framebuffer大小
     struct fb_var_screeninfo vinfo;
     struct fb_fix_screeninfo finfo;
+    
+    // 双缓冲相关
+    int double_buffer;          // 是否启用双缓冲
+    int current_buffer;         // 当前缓冲区索引 (0 or 1)
+    char *buffer[2];            // 两个缓冲区指针
+    int use_vsync;              // 是否使用垂直同步
 } fb_layer_config;
 
 struct Rectangle rects[NUM_RECTS];
@@ -78,21 +102,58 @@ void signal_handler(int sig) {
 }
 
 void print_usage(const char* prog_name) {
-    printf("Usage: %s [fb_id] [x_pos] [y_pos] [width] [height]\n", prog_name);
-    printf("  fb_id:  framebuffer device ID (0-3), default: 0\n");
-    printf("  x_pos:  layer X position on screen, default: 50\n");
-    printf("  y_pos:  layer Y position on screen, default: 50\n");
-    printf("  width:  layer width, default: 800\n");
-    printf("  height: layer height, default: 600\n");
+    printf("Usage: %s [fb_id] [x_pos] [y_pos] [width] [height] [double_buffer] [vsync]\n", prog_name);
+    printf("  fb_id:         framebuffer device ID (0-3), default: 0\n");
+    printf("  x_pos:         layer X position on screen, default: 50\n");
+    printf("  y_pos:         layer Y position on screen, default: 50\n");
+    printf("  width:         layer width, default: 800\n");
+    printf("  height:        layer height, default: 600\n");
+    printf("  double_buffer: enable double buffering (0/1), default: 1\n");
+    printf("  vsync:         enable vertical sync (0/1), default: 1\n");
     printf("\nExample:\n");
-    printf("  %s 0 100 100 800 600  # Use fb0 at position (100,100) with size 800x600\n", prog_name);
-    printf("  %s 1 200 200 640 480  # Use fb1 at position (200,200) with size 640x480\n", prog_name);
+    printf("  %s 0 100 100 800 600 1 1  # Use fb0 with double buffer and vsync\n", prog_name);
+    printf("  %s 1 200 200 640 480 0 0  # Use fb1 without double buffer and vsync\n", prog_name);
+}
+
+int wait_for_vsync(fb_layer_config *config) {
+    if (!config->use_vsync) {
+        return 0;
+    }
+    
+    __u32 dummy = 0;
+    if (ioctl(config->fd, FBIO_WAITFORVSYNC, &dummy) != 0) {
+        // 如果标准垂直同步不可用，使用简单的延时
+        static int warning_shown = 0;
+        if (!warning_shown) {
+            printf("Warning: FBIO_WAITFORVSYNC not supported, using timer-based sync\n");
+            warning_shown = 1;
+        }
+        return -1;
+    }
+    return 0;
+}
+
+int pan_display(fb_layer_config *config, int buffer_index) {
+    if (!config->double_buffer) {
+        return 0;
+    }
+    
+    struct fb_var_screeninfo var = config->vinfo;
+    
+    // 设置y偏移来切换缓冲区
+    var.yoffset = buffer_index * config->img_height;
+    
+    if (ioctl(config->fd, FBIOPAN_DISPLAY, &var) != 0) {
+        printf("Warning: FBIOPAN_DISPLAY failed, using direct drawing\n");
+        return -1;
+    }
+    
+    return 0;
 }
 
 int set_layer_show(fb_layer_config *config, int show) {
     if (ioctl(config->fd, FBIOPUT_SHOW_VS_FB, &show) != 0) {
         printf("Warning: Failed to set layer show state (using standard fb)\n");
-        // 如果厂商特定接口失败，继续使用标准接口
         return 0;
     }
     printf("Layer %d show state set to: %s\n", config->fb_id, show ? "visible" : "hidden");
@@ -102,7 +163,6 @@ int set_layer_show(fb_layer_config *config, int show) {
 int set_layer_position(fb_layer_config *config) {
     if (ioctl(config->fd, FBIOPUT_SCREEN_ORIGIN_VS_FB, &config->point) != 0) {
         printf("Warning: Failed to set layer position (using standard fb)\n");
-        // 如果厂商特定接口失败，继续使用标准接口
         return 0;
     }
     printf("Layer %d position set to: (%d, %d)\n", 
@@ -113,10 +173,8 @@ int set_layer_position(fb_layer_config *config) {
 int init_framebuffer_layer(fb_layer_config *config) {
     char dev_name[16];
     
-    // 构造设备文件名
     snprintf(dev_name, sizeof(dev_name), "/dev/fb%d", config->fb_id);
     
-    // 打开framebuffer设备
     config->fd = open(dev_name, O_RDWR);
     if (config->fd == -1) {
         perror("Error opening framebuffer device");
@@ -125,10 +183,8 @@ int init_framebuffer_layer(fb_layer_config *config) {
     
     printf("Opened framebuffer device: %s\n", dev_name);
 
-    // 先设置layer为不可见状态
     set_layer_show(config, 0);
 
-    // 获取可变屏幕信息
     if (ioctl(config->fd, FBIOGET_VSCREENINFO, &config->vinfo) == -1) {
         perror("Error reading variable information");
         close(config->fd);
@@ -139,7 +195,15 @@ int init_framebuffer_layer(fb_layer_config *config) {
     config->vinfo.xres = config->img_width;
     config->vinfo.yres = config->img_height;
     config->vinfo.xres_virtual = config->img_width;
-    config->vinfo.yres_virtual = config->img_height;
+    
+    // 如果启用双缓冲，设置虚拟高度为实际高度的两倍
+    if (config->double_buffer) {
+        config->vinfo.yres_virtual = config->img_height * 2;
+        printf("Double buffering enabled: virtual height = %d\n", config->vinfo.yres_virtual);
+    } else {
+        config->vinfo.yres_virtual = config->img_height;
+        printf("Single buffering mode\n");
+    }
     
     // 设置像素格式为ARGB8888
     config->vinfo.bits_per_pixel = 32;
@@ -152,27 +216,24 @@ int init_framebuffer_layer(fb_layer_config *config) {
     config->vinfo.transp.offset = 24;
     config->vinfo.transp.length = 8;
 
-    // 应用可变屏幕信息设置
     if (ioctl(config->fd, FBIOPUT_VSCREENINFO, &config->vinfo) == -1) {
         perror("Error setting variable information");
         close(config->fd);
         return -1;
     }
 
-    // 获取固定屏幕信息
     if (ioctl(config->fd, FBIOGET_FSCREENINFO, &config->finfo) == -1) {
         perror("Error reading fixed information");
         close(config->fd);
         return -1;
     }
 
-    printf("Layer info: %dx%d, %d bpp\n", 
-           config->vinfo.xres, config->vinfo.yres, config->vinfo.bits_per_pixel);
+    printf("Layer info: %dx%d, %d bpp, virtual: %dx%d\n", 
+           config->vinfo.xres, config->vinfo.yres, config->vinfo.bits_per_pixel,
+           config->vinfo.xres_virtual, config->vinfo.yres_virtual);
 
-    // 计算屏幕大小
     config->screensize = config->finfo.smem_len;
 
-    // 映射framebuffer到内存
     config->framebuffer = (char*)mmap(0, config->screensize, PROT_READ | PROT_WRITE, 
                                      MAP_SHARED, config->fd, 0);
     
@@ -184,28 +245,50 @@ int init_framebuffer_layer(fb_layer_config *config) {
 
     printf("Framebuffer mapped to memory, size: %ld bytes\n", config->screensize);
 
-    // 设置layer位置
+    // 设置缓冲区指针
+    if (config->double_buffer) {
+        config->buffer[0] = config->framebuffer;
+        config->buffer[1] = config->framebuffer + (config->finfo.line_length * config->img_height);
+        config->current_buffer = 0;
+        
+        // 清空两个缓冲区
+        memset(config->buffer[0], 0, config->finfo.line_length * config->img_height);
+        memset(config->buffer[1], 0, config->finfo.line_length * config->img_height);
+        
+        printf("Double buffer setup: buf0=%p, buf1=%p\n", 
+               (void*)config->buffer[0], (void*)config->buffer[1]);
+    } else {
+        config->buffer[0] = config->framebuffer;
+        config->buffer[1] = config->framebuffer;
+        config->current_buffer = 0;
+        memset(config->framebuffer, 0, config->screensize);
+    }
+
     set_layer_position(config);
-    
-    // 清空framebuffer
-    memset(config->framebuffer, 0, config->screensize);
-    
-    // 设置layer为可见状态
     set_layer_show(config, 1);
+    
+    // 测试垂直同步支持
+    if (config->use_vsync) {
+        if (wait_for_vsync(config) == 0) {
+            printf("Vertical sync enabled\n");
+        } else {
+            printf("Vertical sync not available, using timer-based sync\n");
+        }
+    } else {
+        printf("Vertical sync disabled\n");
+    }
     
     return 0;
 }
 
 void cleanup_framebuffer_layer(fb_layer_config *config) {
     if (config->framebuffer && config->framebuffer != MAP_FAILED) {
-        // 清空framebuffer
         memset(config->framebuffer, 0, config->screensize);
         munmap(config->framebuffer, config->screensize);
         config->framebuffer = NULL;
     }
     
     if (config->fd != -1) {
-        // 设置layer为不可见状态
         set_layer_show(config, 0);
         close(config->fd);
         config->fd = -1;
@@ -233,7 +316,6 @@ void initialize_rects(fb_layer_config *config) {
         rects[i].velo_y = (rand() % 10) + 5;
         rects[i].color = colors[i];
         
-        // Random direction
         if (rand() % 2) rects[i].velo_x = -rects[i].velo_x;
         if (rand() % 2) rects[i].velo_y = -rects[i].velo_y;
     }
@@ -244,7 +326,6 @@ void update_rect_positions(fb_layer_config *config) {
         rects[i].x += rects[i].velo_x;
         rects[i].y += rects[i].velo_y;
 
-        // Bounce off boundaries
         if (rects[i].x <= 0 || rects[i].x + RECT_WIDTH >= config->img_width) {
             rects[i].velo_x = -rects[i].velo_x;
             rects[i].x = (rects[i].x <= 0) ? 0 : config->img_width - RECT_WIDTH;
@@ -256,73 +337,87 @@ void update_rect_positions(fb_layer_config *config) {
     }
 }
 
-void put_pixel(fb_layer_config *config, int x, int y, uint32_t color) {
+void put_pixel_to_buffer(char *buffer, fb_layer_config *config, int x, int y, uint32_t color) {
     if (x < 0 || x >= config->img_width || y < 0 || y >= config->img_height) {
         return;
     }
     
-    long location = (x + config->vinfo.xoffset) * (config->vinfo.bits_per_pixel / 8) +
-                    (y + config->vinfo.yoffset) * config->finfo.line_length;
+    long location = x * (config->vinfo.bits_per_pixel / 8) + y * config->finfo.line_length;
     
     if (config->vinfo.bits_per_pixel == 32) {
-        *((uint32_t*)(config->framebuffer + location)) = color;
+        *((uint32_t*)(buffer + location)) = color;
     } else if (config->vinfo.bits_per_pixel == 16) {
-        // Convert ARGB8888 to RGB565
         uint16_t r = (color >> 16) & 0xFF;
         uint16_t g = (color >> 8) & 0xFF;
         uint16_t b = color & 0xFF;
         uint16_t color565 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-        *((uint16_t*)(config->framebuffer + location)) = color565;
+        *((uint16_t*)(buffer + location)) = color565;
     }
 }
 
-void clear_screen(fb_layer_config *config) {
-    memset(config->framebuffer, 0, config->screensize);
+void clear_buffer(char *buffer, fb_layer_config *config) {
+    memset(buffer, 0, config->finfo.line_length * config->img_height);
 }
 
-void draw_rectangle(fb_layer_config *config, int x, int y, int w, int h, uint32_t color) {
+void draw_rectangle_to_buffer(char *buffer, fb_layer_config *config, int x, int y, int w, int h, uint32_t color) {
     for (int py = y; py < y + h; py++) {
         for (int px = x; px < x + w; px++) {
-            put_pixel(config, px, py, color);
+            put_pixel_to_buffer(buffer, config, px, py, color);
         }
     }
 }
 
-void draw_rects(fb_layer_config *config) {
-    clear_screen(config);
+void draw_rects_to_buffer(char *buffer, fb_layer_config *config) {
+    clear_buffer(buffer, config);
     
     for (int i = 0; i < NUM_RECTS; i++) {
-        draw_rectangle(config, rects[i].x, rects[i].y, RECT_WIDTH, RECT_HEIGHT, rects[i].color);
+        draw_rectangle_to_buffer(buffer, config, rects[i].x, rects[i].y, RECT_WIDTH, RECT_HEIGHT, rects[i].color);
     }
 }
 
-void draw_border(fb_layer_config *config) {
-    uint32_t border_color = 0xFFFFFFFF; // White border
+void draw_border_to_buffer(char *buffer, fb_layer_config *config) {
+    uint32_t border_color = 0xFFFFFFFF;
     
-    // Top and bottom borders
     for (int x = 0; x < config->img_width; x++) {
-        put_pixel(config, x, 0, border_color);
-        put_pixel(config, x, config->img_height - 1, border_color);
+        put_pixel_to_buffer(buffer, config, x, 0, border_color);
+        put_pixel_to_buffer(buffer, config, x, config->img_height - 1, border_color);
     }
     
-    // Left and right borders  
     for (int y = 0; y < config->img_height; y++) {
-        put_pixel(config, 0, y, border_color);
-        put_pixel(config, config->img_width - 1, y, border_color);
+        put_pixel_to_buffer(buffer, config, 0, y, border_color);
+        put_pixel_to_buffer(buffer, config, config->img_width - 1, y, border_color);
     }
+}
+
+void swap_buffers(fb_layer_config *config) {
+    if (!config->double_buffer) {
+        return;
+    }
+    
+    // 等待垂直同步
+    wait_for_vsync(config);
+    
+    // 切换显示缓冲区
+    pan_display(config, config->current_buffer);
+    
+    // 切换后台缓冲区
+    config->current_buffer = 1 - config->current_buffer;
 }
 
 int main(int argc, char *argv[]) {
-    printf("Starting framebuffer layer rectangle collision demo\n");
+    printf("Starting framebuffer layer rectangle collision demo with VSync\n");
     
     // 设置默认参数
-    layer_config.fb_id = 0;           // 默认使用fb0
-    layer_config.point.x = 50;        // 默认X位置
-    layer_config.point.y = 50;        // 默认Y位置
-    layer_config.img_width = 800;     // 默认宽度
-    layer_config.img_height = 600;    // 默认高度
+    layer_config.fb_id = 0;
+    layer_config.point.x = 50;
+    layer_config.point.y = 50;
+    layer_config.img_width = 800;
+    layer_config.img_height = 600;
     layer_config.pixel_format = E_PIXEL_FORMAT_ARGB8888;
     layer_config.fd = -1;
+    layer_config.double_buffer = 1;  // 默认启用双缓冲
+    layer_config.use_vsync = 1;      // 默认启用垂直同步
+    layer_config.current_buffer = 0;
     
     // 解析命令行参数
     if (argc > 1) {
@@ -342,14 +437,16 @@ int main(int argc, char *argv[]) {
     if (argc > 3) layer_config.point.y = atoi(argv[3]);
     if (argc > 4) layer_config.img_width = atoi(argv[4]);
     if (argc > 5) layer_config.img_height = atoi(argv[5]);
+    if (argc > 6) layer_config.double_buffer = atoi(argv[6]);
+    if (argc > 7) layer_config.use_vsync = atoi(argv[7]);
     
     // 设置对应的layer ID
     if (layer_config.fb_id == 0) {
-        layer_config.vo_layerid = 2;  // fb0 -> layer 2
+        layer_config.vo_layerid = 2;
     } else if (layer_config.fb_id == 1) {
-        layer_config.vo_layerid = 1;  // fb1 -> layer 1
+        layer_config.vo_layerid = 1;
     } else {
-        layer_config.vo_layerid = 0;  // fb2/fb3 -> cursor layer
+        layer_config.vo_layerid = 0;
     }
     
     printf("Configuration:\n");
@@ -357,39 +454,41 @@ int main(int argc, char *argv[]) {
     printf("  Layer ID: %d\n", layer_config.vo_layerid);
     printf("  Position: (%d, %d)\n", layer_config.point.x, layer_config.point.y);
     printf("  Size: %dx%d\n", layer_config.img_width, layer_config.img_height);
+    printf("  Double Buffer: %s\n", layer_config.double_buffer ? "enabled" : "disabled");
+    printf("  VSync: %s\n", layer_config.use_vsync ? "enabled" : "disabled");
     
-    // Setup signal handler
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
     
-    // Initialize framebuffer layer
     if (init_framebuffer_layer(&layer_config) != 0) {
         return 1;
     }
 
-    // Initialize rectangles
     initialize_rects(&layer_config);
 
-    // Main animation loop
     struct timespec start, end;
-    long frame_duration = 1000000000 / FPS; // nanoseconds per frame
+    long frame_duration = 1000000000 / FPS;
     
     printf("Starting animation loop on layer %d (Press Ctrl+C to exit)\n", layer_config.fb_id);
     
     while (!stop_flag) {
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        // Update positions
-        update_rect_positions(&layer_config);
+        // 在后台缓冲区绘制
+        char *back_buffer = layer_config.buffer[layer_config.current_buffer];
         
-        // Draw frame
-        draw_rects(&layer_config);
-        draw_border(&layer_config);
+        update_rect_positions(&layer_config);
+        draw_rects_to_buffer(back_buffer, &layer_config);
+        draw_border_to_buffer(back_buffer, &layer_config);
 
-        // Frame rate control
+        // 交换缓冲区（包含垂直同步）
+        swap_buffers(&layer_config);
+
+        // 帧率控制（如果没有垂直同步）
+        
         clock_gettime(CLOCK_MONOTONIC, &end);
         long elapsed = (end.tv_sec - start.tv_sec) * 1000000000 + 
-                      (end.tv_nsec - start.tv_nsec);
+                        (end.tv_nsec - start.tv_nsec);
         
         if (elapsed < frame_duration) {
             struct timespec remaining;
@@ -397,6 +496,7 @@ int main(int argc, char *argv[]) {
             remaining.tv_nsec = frame_duration - elapsed;
             nanosleep(&remaining, NULL);
         }
+        
     }
 
     printf("\nCleaning up layer %d...\n", layer_config.fb_id);
