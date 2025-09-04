@@ -2,12 +2,6 @@
 SET(SAMPLE_COMMON_DIR ${CMAKE_SOURCE_DIR}/vs-mp/common)
 
 SET(SAMPLE_COMMON_SRCS
-    ${SAMPLE_COMMON_DIR}/sample_common_sys.c
-    ${SAMPLE_COMMON_DIR}/sample_common_vii.c
-    ${SAMPLE_COMMON_DIR}/sample_common_vpp.c
-    ${SAMPLE_COMMON_DIR}/sample_common_venc.c
-    ${SAMPLE_COMMON_DIR}/sample_common_vo.c
-    ${SAMPLE_COMMON_DIR}/sample_common_mipitx.c
 )
 
 # ===== Local Source Files =====
@@ -31,24 +25,6 @@ ADD_EXECUTABLE(${APP_NAME} ${SRC_LIST})
 # ===== Link Libraries =====
 TARGET_LINK_LIBRARIES(
     ${APP_NAME}
-    # VS-MP specific libraries
-    base
-    sys
-    gpe
-    GAL
-    mipirx
-    init
-    dsp
-    vii
-    isp
-    vpp
-    venc
-    gdc
-    vo
-    mipitx
-    hdmi
-    regtools
-    
     # System libraries
     dl
     m
