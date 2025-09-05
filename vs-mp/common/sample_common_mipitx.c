@@ -189,11 +189,11 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 	vs_mipi_tx_config_s config = {};
 
 	// PHY Rate = (pixel_clk_rate × 24 × 1) / 3 / 2(ddr), *2(mbps)
-	int phy_rate = 907;
+	int phy_rate = 820;
 	int mode = E_NON_BURST_MODE_SYNC_PULSES;
 
 	config.phy_data_rate = phy_rate;
-	// pixel_clk_rate = 1365 × 990 × 59.95 ≈ 81,000,000 Hz
+	// pixel_clk_rate = 1365 × 990 × 59.94 ≈ 81,000,000 Hz
 	config.pixel_clk = 81000;
 	config.lanes = 3;
 	config.pixel_format = E_MIPI_TX_PIXEL_RGB888;
@@ -570,7 +570,7 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 
 	// system("echo 1 > /sys/class/gpio/gpio419/value");
 
-	system("/root/app/oled_pwr.sh &");
+	// system("/root/app/oled_pwr.sh &");
 
 	ret = mipitx_config(vo_output, timing_info, clk_info, mipitx_phy_rate);
 	if (ret) {
@@ -590,6 +590,7 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 	// 	goto exit;
 	// }
 
+	system("echo 1 > /sys/class/gpio/gpio419/value");
 	
 	ret = panel_init(VS_FALSE);
 	if (ret) {
