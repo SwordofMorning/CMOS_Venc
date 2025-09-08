@@ -56,7 +56,7 @@ LINK_DIRECTORIES(
 )
 
 # ===== Step 9 : Set Application Name =====
-SET(APP_NAME "app_fb")
+SET(APP_NAME "xOTA")
 
 # ===== Step 10 : Add Subdirectory =====
 ADD_SUBDIRECTORY(src bin)
