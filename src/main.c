@@ -22,7 +22,7 @@
 
 #define DEFAULT_RETRY_COUNT 1
 
-// Misc partition structure (1MB total)
+// 更新的Misc partition structure，与ab_boot保持一致
 typedef struct {
     char magic[16];           // "ANDROID_BOOT" + padding
     char slot_suffix[32];     // Current active slot ("_a" or "_b")
@@ -39,7 +39,12 @@ typedef struct {
     uint8_t active_b;         // 1 = active, 0 = not active
     uint8_t retry_count_b;    // Boot retry count
     
-    char reserved[976];       // Reserved space for future use
+    // 新增字段
+    uint8_t boot_attempts_a;  // Slot A boot attempts counter
+    uint8_t boot_attempts_b;  // Slot B boot attempts counter
+    uint8_t last_boot_slot;   // Last boot slot ('a' or 'b')
+    
+    char reserved[973];       // 调整reserved大小 (976 - 3 = 973)
 } misc_info_t;
 
 // Function prototypes
@@ -53,7 +58,7 @@ void print_usage(const char *program_name);
 void print_slot_info(const misc_info_t *misc);
 void init_misc_partition(misc_info_t *misc);
 
-// 新增：验证rootfs文件格式的函数
+// 验证rootfs文件格式的函数
 int validate_rootfs_file(const char *filename)
 {
     if (!filename) {
@@ -75,7 +80,7 @@ int validate_rootfs_file(const char *filename)
     } else if (strcmp(ext, "simg") == 0 || strstr(filename, ".simg")) {
         printf("Error: .simg files are not supported. Please use .img files only.\n");
         printf("Hint: Convert .simg to .img using: simg2img %s %s\n", 
-               filename, filename); // 这里只是示例，实际可能需要修改输出文件名
+               filename, filename);
         return -1;
     } else {
         printf("Error: Unsupported rootfs file format. Only .img files are supported.\n");
@@ -130,7 +135,6 @@ int main(int argc, char *argv[])
                 break;
             case 'f':
                 rootfs_file = optarg;
-                // 新增：立即验证rootfs文件格式
                 if (validate_rootfs_file(rootfs_file) != 0) {
                     return 1;
                 }
@@ -176,7 +180,6 @@ int main(int argc, char *argv[])
             return 1;
         }
         
-        // 再次验证rootfs文件（双重保险）
         if (validate_rootfs_file(rootfs_file) != 0) {
             return 1;
         }
@@ -220,12 +223,13 @@ int main(int argc, char *argv[])
             return 1;
         }
         
-        // 修改：Set inactive slot as active and bootable，使用新的retry count
+        // Set inactive slot as active and bootable
         if (inactive_slot == 'A') {
             misc.bootable_a = 1;
             misc.successful_a = 0;  // Will be set by s99_ota.sh after successful boot
             misc.active_a = 1;
-            misc.retry_count_a = DEFAULT_RETRY_COUNT;  // 修改：使用新的retry count值
+            misc.retry_count_a = DEFAULT_RETRY_COUNT;
+            misc.boot_attempts_a = 0;  // 新增：重置启动尝试计数
             
             misc.active_b = 0;
             strcpy(misc.slot_suffix, "_a");
@@ -233,7 +237,8 @@ int main(int argc, char *argv[])
             misc.bootable_b = 1;
             misc.successful_b = 0;  // Will be set by s99_ota.sh after successful boot
             misc.active_b = 1;
-            misc.retry_count_b = DEFAULT_RETRY_COUNT;  // 修改：使用新的retry count值
+            misc.retry_count_b = DEFAULT_RETRY_COUNT;
+            misc.boot_attempts_b = 0;  // 新增：重置启动尝试计数
             
             misc.active_a = 0;
             strcpy(misc.slot_suffix, "_b");
@@ -276,10 +281,23 @@ int main(int argc, char *argv[])
                     strcpy(misc.slot_suffix, "_a");
                 }
             } else if (strcmp(label_name, "retry_count") == 0) {
-                // 新增：支持设置retry_count
                 misc.retry_count_a = (uint8_t)label_value;
+            } else if (strcmp(label_name, "boot_attempts") == 0) {
+                // 新增：支持设置boot_attempts
+                misc.boot_attempts_a = (uint8_t)label_value;
+            } else if (strcmp(label_name, "last_boot_slot") == 0) {
+                // 新增：支持设置last_boot_slot
+                if (label_value == 'a' || label_value == 'A') {
+                    misc.last_boot_slot = 'a';
+                } else if (label_value == 'b' || label_value == 'B') {
+                    misc.last_boot_slot = 'b';
+                } else {
+                    printf("Invalid last_boot_slot value: %d (should be 'a' or 'b')\n", label_value);
+                    return 1;
+                }
             } else {
                 printf("Unknown label: %s\n", label_name);
+                printf("Available labels: bootable, successful, active, retry_count, boot_attempts, last_boot_slot\n");
                 return 1;
             }
         } else if (target_slot == 'B' || target_slot == 'b') {
@@ -294,10 +312,23 @@ int main(int argc, char *argv[])
                     strcpy(misc.slot_suffix, "_b");
                 }
             } else if (strcmp(label_name, "retry_count") == 0) {
-                // 新增：支持设置retry_count
                 misc.retry_count_b = (uint8_t)label_value;
+            } else if (strcmp(label_name, "boot_attempts") == 0) {
+                // 新增：支持设置boot_attempts
+                misc.boot_attempts_b = (uint8_t)label_value;
+            } else if (strcmp(label_name, "last_boot_slot") == 0) {
+                // 新增：支持设置last_boot_slot
+                if (label_value == 'a' || label_value == 'A') {
+                    misc.last_boot_slot = 'a';
+                } else if (label_value == 'b' || label_value == 'B') {
+                    misc.last_boot_slot = 'b';
+                } else {
+                    printf("Invalid last_boot_slot value: %d (should be 'a' or 'b')\n", label_value);
+                    return 1;
+                }
             } else {
                 printf("Unknown label: %s\n", label_name);
+                printf("Available labels: bootable, successful, active, retry_count, boot_attempts, last_boot_slot\n");
                 return 1;
             }
         } else {
@@ -339,6 +370,13 @@ int read_misc_partition(misc_info_t *misc)
         printf("Misc partition not initialized, initializing...\n");
         init_misc_partition(misc);
         return write_misc_partition(misc);
+    }
+    
+    // 新增：兼容性检查和初始化新字段
+    if (misc->boot_attempts_a > 10) misc->boot_attempts_a = 0;
+    if (misc->boot_attempts_b > 10) misc->boot_attempts_b = 0;
+    if (misc->last_boot_slot != 'a' && misc->last_boot_slot != 'b') {
+        misc->last_boot_slot = 'a';
     }
     
     return 0;
@@ -440,46 +478,54 @@ int copy_file_to_device(const char *src_file, const char *dst_device)
     return 0;
 }
 
-// 修改：init_misc_partition函数，使用新的默认retry count
+// 更新：初始化函数，添加新字段的初始化
 void init_misc_partition(misc_info_t *misc)
 {
     memset(misc, 0, sizeof(misc_info_t));
     strcpy(misc->magic, "ANDROID_BOOT");
     strcpy(misc->slot_suffix, "_a");
     
-    // Initialize slot A as active by default，使用新的retry count
+    // Initialize slot A as active by default
     misc->bootable_a = 1;
     misc->successful_a = 1;
     misc->active_a = 1;
-    misc->retry_count_a = DEFAULT_RETRY_COUNT;  // 修改：从3改为1
+    misc->retry_count_a = DEFAULT_RETRY_COUNT;
+    misc->boot_attempts_a = 0;  // 新增：初始化启动尝试计数
     
-    // Initialize slot B as inactive，使用新的retry count
+    // Initialize slot B as inactive
     misc->bootable_b = 1;
     misc->successful_b = 0;
     misc->active_b = 0;
-    misc->retry_count_b = DEFAULT_RETRY_COUNT;  // 修改：从3改为1
+    misc->retry_count_b = DEFAULT_RETRY_COUNT;
+    misc->boot_attempts_b = 0;  // 新增：初始化启动尝试计数
+    
+    misc->last_boot_slot = 'a';  // 新增：初始化上次启动slot
 }
 
+// 更新：打印函数，显示新字段
 void print_slot_info(const misc_info_t *misc)
 {
     printf("Misc partition info:\n");
     printf("  Magic: %.16s\n", misc->magic);
     printf("  Active slot: %s\n", misc->slot_suffix);
+    printf("  Last boot slot: %c\n", misc->last_boot_slot);
     printf("\n");
     printf("Slot A:\n");
     printf("  Bootable: %d\n", misc->bootable_a);
     printf("  Successful: %d\n", misc->successful_a);
     printf("  Active: %d\n", misc->active_a);
     printf("  Retry count: %d\n", misc->retry_count_a);
+    printf("  Boot attempts: %d\n", misc->boot_attempts_a);  // 新增
     printf("\n");
     printf("Slot B:\n");
     printf("  Bootable: %d\n", misc->bootable_b);
     printf("  Successful: %d\n", misc->successful_b);
     printf("  Active: %d\n", misc->active_b);
     printf("  Retry count: %d\n", misc->retry_count_b);
+    printf("  Boot attempts: %d\n", misc->boot_attempts_b);  // 新增
 }
 
-// 修改：更新帮助信息
+// 更新：帮助信息，添加新的label类型
 void print_usage(const char *program_name)
 {
     printf("Usage: %s [OPTIONS]\n", program_name);
@@ -492,17 +538,27 @@ void print_usage(const char *program_name)
     printf("    --rootfs, -f <file>         Rootfs file for upgrade (.img format only)\n");
     printf("  --set-label, -l               Set slot label\n");
     printf("    --target-slot, -t <A|B>     Target slot (A or B)\n");
-    printf("    --label, -n <name>          Label name (bootable|successful|active|retry_count)\n");
-    printf("    --value, -v <0|1>           Label value (0 or 1, or 1-255 for retry_count)\n");
+    printf("    --label, -n <name>          Label name (see below)\n");
+    printf("    --value, -v <value>         Label value\n");
     printf("  --help, -h                    Show this help message\n");
+    printf("\n");
+    printf("Available labels:\n");
+    printf("  bootable                      Bootable flag (0 or 1)\n");
+    printf("  successful                    Successful flag (0 or 1)\n");
+    printf("  active                        Active flag (0 or 1)\n");
+    printf("  retry_count                   Retry count (0-255)\n");
+    printf("  boot_attempts                 Boot attempts counter (0-255)\n");
+    printf("  last_boot_slot               Last boot slot ('a' or 'b' as ASCII value)\n");
     printf("\n");
     printf("Notes:\n");
     printf("  - Fast failover is enabled (default retry count = %d)\n", DEFAULT_RETRY_COUNT);
     printf("  - Only .img files are supported for rootfs. Convert .simg using simg2img.\n");
+    printf("  - Boot attempts counter is used for automatic failover detection.\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s --slot\n", program_name);
     printf("  %s --upgrade -d dtb.dtb -k Image -f rootfs.img\n", program_name);
     printf("  %s --set-label -t A -n active -v 1\n", program_name);
-    printf("  %s --set-label -t B -n retry_count -v 3\n", program_name);
+    printf("  %s --set-label -t B -n boot_attempts -v 0\n", program_name);
+    printf("  %s --set-label -t A -n last_boot_slot -v 97  # 'a' as ASCII\n", program_name);
 }
