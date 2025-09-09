@@ -20,6 +20,8 @@
 #define PROC_CMDLINE "/proc/cmdline"
 #define BUFFER_SIZE 4096
 
+#define DEFAULT_RETRY_COUNT 1
+
 // Misc partition structure (1MB total)
 typedef struct {
     char magic[16];           // "ANDROID_BOOT" + padding
@@ -50,6 +52,37 @@ int copy_file_to_device(const char *src_file, const char *dst_device);
 void print_usage(const char *program_name);
 void print_slot_info(const misc_info_t *misc);
 void init_misc_partition(misc_info_t *misc);
+
+// 新增：验证rootfs文件格式的函数
+int validate_rootfs_file(const char *filename)
+{
+    if (!filename) {
+        printf("Error: Rootfs filename is NULL\n");
+        return -1;
+    }
+    
+    size_t len = strlen(filename);
+    if (len < 4) {
+        printf("Error: Rootfs filename too short\n");
+        return -1;
+    }
+    
+    // 检查文件扩展名
+    const char *ext = filename + len - 4;
+    if (strcmp(ext, ".img") == 0) {
+        printf("Info: Rootfs file format validated (.img)\n");
+        return 0;
+    } else if (strcmp(ext, "simg") == 0 || strstr(filename, ".simg")) {
+        printf("Error: .simg files are not supported. Please use .img files only.\n");
+        printf("Hint: Convert .simg to .img using: simg2img %s %s\n", 
+               filename, filename); // 这里只是示例，实际可能需要修改输出文件名
+        return -1;
+    } else {
+        printf("Error: Unsupported rootfs file format. Only .img files are supported.\n");
+        printf("Current file: %s\n", filename);
+        return -1;
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -97,6 +130,10 @@ int main(int argc, char *argv[])
                 break;
             case 'f':
                 rootfs_file = optarg;
+                // 新增：立即验证rootfs文件格式
+                if (validate_rootfs_file(rootfs_file) != 0) {
+                    return 1;
+                }
                 break;
             case 't':
                 target_slot = optarg[0];
@@ -139,6 +176,11 @@ int main(int argc, char *argv[])
             return 1;
         }
         
+        // 再次验证rootfs文件（双重保险）
+        if (validate_rootfs_file(rootfs_file) != 0) {
+            return 1;
+        }
+        
         char current_slot = get_current_slot();
         if (!current_slot) {
             printf("Failed to determine current slot\n");
@@ -178,12 +220,12 @@ int main(int argc, char *argv[])
             return 1;
         }
         
-        // Set inactive slot as active and bootable
+        // 修改：Set inactive slot as active and bootable，使用新的retry count
         if (inactive_slot == 'A') {
             misc.bootable_a = 1;
             misc.successful_a = 0;  // Will be set by s99_ota.sh after successful boot
             misc.active_a = 1;
-            misc.retry_count_a = 3;
+            misc.retry_count_a = DEFAULT_RETRY_COUNT;  // 修改：使用新的retry count值
             
             misc.active_b = 0;
             strcpy(misc.slot_suffix, "_a");
@@ -191,7 +233,7 @@ int main(int argc, char *argv[])
             misc.bootable_b = 1;
             misc.successful_b = 0;  // Will be set by s99_ota.sh after successful boot
             misc.active_b = 1;
-            misc.retry_count_b = 3;
+            misc.retry_count_b = DEFAULT_RETRY_COUNT;  // 修改：使用新的retry count值
             
             misc.active_a = 0;
             strcpy(misc.slot_suffix, "_b");
@@ -204,6 +246,7 @@ int main(int argc, char *argv[])
         
         printf("Upgrade completed successfully!\n");
         printf("Please reboot to switch to slot %c\n", inactive_slot);
+        printf("Note: Fast failover enabled (retry count = %d)\n", DEFAULT_RETRY_COUNT);
         return 0;
     }
     
@@ -232,6 +275,9 @@ int main(int argc, char *argv[])
                     misc.active_b = 0;
                     strcpy(misc.slot_suffix, "_a");
                 }
+            } else if (strcmp(label_name, "retry_count") == 0) {
+                // 新增：支持设置retry_count
+                misc.retry_count_a = (uint8_t)label_value;
             } else {
                 printf("Unknown label: %s\n", label_name);
                 return 1;
@@ -247,6 +293,9 @@ int main(int argc, char *argv[])
                     misc.active_a = 0;
                     strcpy(misc.slot_suffix, "_b");
                 }
+            } else if (strcmp(label_name, "retry_count") == 0) {
+                // 新增：支持设置retry_count
+                misc.retry_count_b = (uint8_t)label_value;
             } else {
                 printf("Unknown label: %s\n", label_name);
                 return 1;
@@ -391,23 +440,24 @@ int copy_file_to_device(const char *src_file, const char *dst_device)
     return 0;
 }
 
+// 修改：init_misc_partition函数，使用新的默认retry count
 void init_misc_partition(misc_info_t *misc)
 {
     memset(misc, 0, sizeof(misc_info_t));
     strcpy(misc->magic, "ANDROID_BOOT");
     strcpy(misc->slot_suffix, "_a");
     
-    // Initialize slot A as active by default
+    // Initialize slot A as active by default，使用新的retry count
     misc->bootable_a = 1;
     misc->successful_a = 1;
     misc->active_a = 1;
-    misc->retry_count_a = 3;
+    misc->retry_count_a = DEFAULT_RETRY_COUNT;  // 修改：从3改为1
     
-    // Initialize slot B as inactive
+    // Initialize slot B as inactive，使用新的retry count
     misc->bootable_b = 1;
     misc->successful_b = 0;
     misc->active_b = 0;
-    misc->retry_count_b = 3;
+    misc->retry_count_b = DEFAULT_RETRY_COUNT;  // 修改：从3改为1
 }
 
 void print_slot_info(const misc_info_t *misc)
@@ -429,6 +479,7 @@ void print_slot_info(const misc_info_t *misc)
     printf("  Retry count: %d\n", misc->retry_count_b);
 }
 
+// 修改：更新帮助信息
 void print_usage(const char *program_name)
 {
     printf("Usage: %s [OPTIONS]\n", program_name);
@@ -438,15 +489,20 @@ void print_usage(const char *program_name)
     printf("  --upgrade, -u                 Upgrade system to inactive slot\n");
     printf("    --dtb, -d <file>            DTB file for upgrade\n");
     printf("    --kernel, -k <file>         Kernel file for upgrade\n");
-    printf("    --rootfs, -f <file>         Rootfs file for upgrade\n");
+    printf("    --rootfs, -f <file>         Rootfs file for upgrade (.img format only)\n");
     printf("  --set-label, -l               Set slot label\n");
     printf("    --target-slot, -t <A|B>     Target slot (A or B)\n");
-    printf("    --label, -n <name>          Label name (bootable|successful|active)\n");
-    printf("    --value, -v <0|1>           Label value (0 or 1)\n");
+    printf("    --label, -n <name>          Label name (bootable|successful|active|retry_count)\n");
+    printf("    --value, -v <0|1>           Label value (0 or 1, or 1-255 for retry_count)\n");
     printf("  --help, -h                    Show this help message\n");
+    printf("\n");
+    printf("Notes:\n");
+    printf("  - Fast failover is enabled (default retry count = %d)\n", DEFAULT_RETRY_COUNT);
+    printf("  - Only .img files are supported for rootfs. Convert .simg using simg2img.\n");
     printf("\n");
     printf("Examples:\n");
     printf("  %s --slot\n", program_name);
-    printf("  %s --upgrade -d dtb.dtb -k Image -f rootfs.simg\n", program_name);
+    printf("  %s --upgrade -d dtb.dtb -k Image -f rootfs.img\n", program_name);
     printf("  %s --set-label -t A -n active -v 1\n", program_name);
+    printf("  %s --set-label -t B -n retry_count -v 3\n", program_name);
 }
