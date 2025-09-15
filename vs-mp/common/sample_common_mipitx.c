@@ -189,7 +189,7 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 	vs_mipi_tx_config_s config = {};
 
 	// PHY Rate = (pixel_clk_rate × 24 × 1) / 3 / 2(ddr), *2(mbps)
-	int phy_rate = 820;
+	int phy_rate = 698;
 	int mode = E_NON_BURST_MODE_SYNC_PULSES;
 
 	config.phy_data_rate = phy_rate;

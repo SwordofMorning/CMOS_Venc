@@ -379,8 +379,9 @@ void sample_common_vo_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
     attr->timing_info.data_polarity = 1;
     attr->timing_info.interlaced_output = 0;
     // pixel_clk_rate = 1365 × 990 × 60 = 81,081,000 Hz
-    clk->pixel_clk_rate = 81081000UL;
-    clk->clk_div = 8;
+    // XJT Note: Here total need set as 27MHz * 44 = 1188MHz
+    clk->pixel_clk_rate = 79200000UL;
+    clk->clk_div = 15;
 }
 
 static vs_void_t sample_common_vo_intf_user_timing_get(sample_vo_cfg_s *p_vo_config)
@@ -392,7 +393,7 @@ static vs_void_t sample_common_vo_intf_user_timing_get(sample_vo_cfg_s *p_vo_con
         sample_common_vo_timing_get(&dev_attr, &clk);
         if (!p_vo_config->mipitx_phy_rate) {
             /* phy rate = ((pixel_clk / 1000000) * 24) / 4 * 1.2 for burst mode, sometime need fix a little */
-            p_vo_config->mipitx_phy_rate = 324;
+            p_vo_config->mipitx_phy_rate = 500;
         }
     }
 
