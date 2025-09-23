@@ -560,7 +560,7 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 {
 	vs_int32_t ret;
 
-	system("echo 0 > /sys/class/gpio/gpio419/value");
+	system("echo off > /sys/devices/platform/gpio-controller/panel_reset");
 
 	ret = vs_mal_mipi_tx_open();
 	if (ret) {
@@ -590,7 +590,7 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 	// 	goto exit;
 	// }
 
-	system("echo 1 > /sys/class/gpio/gpio419/value");
+	system("echo on > /sys/devices/platform/gpio-controller/panel_reset");
 	
 	ret = panel_init(VS_FALSE);
 	if (ret) {
