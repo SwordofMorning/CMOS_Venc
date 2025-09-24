@@ -56,7 +56,7 @@ LINK_DIRECTORIES(
 )
 
 # ===== Step 9 : Set Application Name =====
-SET(APP_NAME "app_vio")
+SET(APP_NAME "bootanimation")
 
 # ===== Step 10 : Add Subdirectory =====
 ADD_SUBDIRECTORY(src bin)
