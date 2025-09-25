@@ -1,7 +1,7 @@
 /**
  * @file    bootanimation.c
- * @brief   Combined VO initialization and framebuffer animation
- * @details Initialize display hardware and run rectangle collision animation
+ * @brief   Combined VO initialization and static logo display
+ * @details Initialize display hardware and show static BMP logo
  * @author  Combined for integrated usage
  * @date    2025-01-01
  * @version v1.00
@@ -35,15 +35,7 @@
 #define FB_ID 0
 #define LAYER_POS_X 0
 #define LAYER_POS_Y 0
-#define BUFFER_MODE 3    // Triple buffer
-#define USE_VSYNC 0      // Disable VSync
-#define ENHANCED_SYNC 0  // Disable enhanced sync
-
-// 动画参数
-#define RECT_WIDTH 80
-#define RECT_HEIGHT 80
-#define NUM_RECTS 8
-#define FPS 60
+#define LOGO_FILE "logo.bmp"
 
 // VSSDK Define
 #define FBIOPUT_SHOW_VS_FB          _IOW('F', 0x101, int)
@@ -53,10 +45,6 @@
 #define FBIOPUT_LAYER_INFO          _IOW('F', 0x105, struct fb_layer_info)
 #define FBIOGET_LAYER_INFO          _IOR('F', 0x106, struct fb_layer_info)
 #define FBIO_REFRESH                _IOW('F', 0x107, struct fb_buffer)
-
-#ifndef FBIO_WAITFORVSYNC
-#define FBIO_WAITFORVSYNC           _IOW('F', 0x20, __u32)
-#endif
 
 // VS Struct
 struct fb_point {
@@ -84,18 +72,30 @@ struct fb_buffer {
     } update_rect;
 };
 
-typedef enum {
-    BUFFER_MODE_SINGLE = 0,
-    BUFFER_MODE_DOUBLE_PAN,
-    BUFFER_MODE_DOUBLE_COPY,
-    BUFFER_MODE_TRIPLE,
-} buffer_mode_t;
+// BMP文件头结构
+#pragma pack(push, 1)
+typedef struct {
+    uint16_t bfType;
+    uint32_t bfSize;
+    uint16_t bfReserved1;
+    uint16_t bfReserved2;
+    uint32_t bfOffBits;
+} BITMAPFILEHEADER;
 
-struct Rectangle {
-    int x, y;
-    int velo_x, velo_y;
-    uint32_t color;
-};
+typedef struct {
+    uint32_t biSize;
+    int32_t biWidth;
+    int32_t biHeight;
+    uint16_t biPlanes;
+    uint16_t biBitCount;
+    uint32_t biCompression;
+    uint32_t biSizeImage;
+    int32_t biXPelsPerMeter;
+    int32_t biYPelsPerMeter;
+    uint32_t biClrUsed;
+    uint32_t biClrImportant;
+} BITMAPINFOHEADER;
+#pragma pack(pop)
 
 typedef struct {
     int fb_id;
@@ -108,19 +108,9 @@ typedef struct {
     long screensize;
     struct fb_var_screeninfo vinfo;
     struct fb_fix_screeninfo finfo;
-    
-    buffer_mode_t buffer_mode;
-    int current_buffer;
-    char *buffer[3];
-    int use_vsync;
-    int enhanced_sync;
-    
-    long frame_count;
-    struct timespec last_fps_time;
 } fb_layer_config;
 
 static volatile sig_atomic_t g_stop_flag = 0;
-static struct Rectangle rects[NUM_RECTS];
 static fb_layer_config layer_config = {0};
 
 void signal_handler(int sig) {
@@ -267,7 +257,7 @@ int init_framebuffer_layer(fb_layer_config *config) {
     config->vinfo.xres = config->img_width;
     config->vinfo.yres = config->img_height;
     config->vinfo.xres_virtual = config->img_width;
-    config->vinfo.yres_virtual = config->img_height * 3;  // Triple buffer
+    config->vinfo.yres_virtual = config->img_height;  // 静态显示只需要单缓冲
     
     // 设置像素格式为ARGB8888
     config->vinfo.bits_per_pixel = 32;
@@ -309,26 +299,13 @@ int init_framebuffer_layer(fb_layer_config *config) {
 
     printf("Framebuffer mapped to memory, size: %ld bytes\n", config->screensize);
 
-    // 设置三缓冲区指针
-    size_t buffer_size = config->finfo.line_length * config->img_height;
-    config->buffer[0] = config->framebuffer;
-    config->buffer[1] = config->framebuffer + buffer_size;
-    config->buffer[2] = config->framebuffer + buffer_size * 2;
-    config->current_buffer = 0;
-    
-    // 清空所有缓冲区
-    memset(config->buffer[0], 0, buffer_size);
-    memset(config->buffer[1], 0, buffer_size);
-    memset(config->buffer[2], 0, buffer_size);
+    // 清空framebuffer
+    memset(config->framebuffer, 0, config->screensize);
 
     set_layer_position(config);
     set_layer_show(config, 1);
     
-    // 初始化性能统计
-    config->frame_count = 0;
-    clock_gettime(CLOCK_MONOTONIC, &config->last_fps_time);
-    
-    printf("Triple buffering mode initialized\n");
+    printf("Single buffer mode initialized for static display\n");
     
     return 0;
 }
@@ -347,48 +324,6 @@ void cleanup_framebuffer_layer(fb_layer_config *config) {
     }
 }
 
-void initialize_rects(fb_layer_config *config) {
-    uint32_t colors[NUM_RECTS] = {
-        0xFFFF0000,  // Red
-        0xFF00FF00,  // Green  
-        0xFF0000FF,  // Blue
-        0xFFFFFF00,  // Yellow
-        0xFFFF00FF,  // Purple
-        0xFF00FFFF,  // Cyan
-        0xFF808080,  // Gray
-        0xFFFFFFFF   // White
-    };
-
-    srand(time(NULL));
-    
-    for (int i = 0; i < NUM_RECTS; i++) {
-        rects[i].x = rand() % (config->img_width - RECT_WIDTH);
-        rects[i].y = rand() % (config->img_height - RECT_HEIGHT);
-        rects[i].velo_x = (rand() % 10) + 5;
-        rects[i].velo_y = (rand() % 10) + 5;
-        rects[i].color = colors[i];
-        
-        if (rand() % 2) rects[i].velo_x = -rects[i].velo_x;
-        if (rand() % 2) rects[i].velo_y = -rects[i].velo_y;
-    }
-}
-
-void update_rect_positions(fb_layer_config *config) {
-    for (int i = 0; i < NUM_RECTS; i++) {
-        rects[i].x += rects[i].velo_x;
-        rects[i].y += rects[i].velo_y;
-
-        if (rects[i].x <= 0 || rects[i].x + RECT_WIDTH >= config->img_width) {
-            rects[i].velo_x = -rects[i].velo_x;
-            rects[i].x = (rects[i].x <= 0) ? 0 : config->img_width - RECT_WIDTH;
-        }
-        if (rects[i].y <= 0 || rects[i].y + RECT_HEIGHT >= config->img_height) {
-            rects[i].velo_y = -rects[i].velo_y;
-            rects[i].y = (rects[i].y <= 0) ? 0 : config->img_height - RECT_HEIGHT;
-        }
-    }
-}
-
 void put_pixel_to_buffer(char *buffer, fb_layer_config *config, int x, int y, uint32_t color) {
     if (x < 0 || x >= config->img_width || y < 0 || y >= config->img_height) {
         return;
@@ -398,73 +333,110 @@ void put_pixel_to_buffer(char *buffer, fb_layer_config *config, int x, int y, ui
     *((uint32_t*)(buffer + location)) = color;
 }
 
-void clear_buffer(char *buffer, fb_layer_config *config) {
-    memset(buffer, 0, config->finfo.line_length * config->img_height);
-}
-
-void draw_rectangle_to_buffer(char *buffer, fb_layer_config *config, int x, int y, int w, int h, uint32_t color) {
-    for (int py = y; py < y + h; py++) {
-        for (int px = x; px < x + w; px++) {
-            put_pixel_to_buffer(buffer, config, px, py, color);
-        }
-    }
-}
-
-void draw_rects_to_buffer(char *buffer, fb_layer_config *config) {
-    clear_buffer(buffer, config);
+int load_bmp_to_framebuffer(const char* filename, fb_layer_config *config) {
+    FILE *file;
+    BITMAPFILEHEADER fileHeader;
+    BITMAPINFOHEADER infoHeader;
     
-    for (int i = 0; i < NUM_RECTS; i++) {
-        draw_rectangle_to_buffer(buffer, config, rects[i].x, rects[i].y, RECT_WIDTH, RECT_HEIGHT, rects[i].color);
-    }
-}
-
-void draw_border_to_buffer(char *buffer, fb_layer_config *config) {
-    uint32_t border_color = 0xFFFFFFFF;
-    
-    for (int x = 0; x < config->img_width; x++) {
-        put_pixel_to_buffer(buffer, config, x, 0, border_color);
-        put_pixel_to_buffer(buffer, config, x, config->img_height - 1, border_color);
-    }
-    
-    for (int y = 0; y < config->img_height; y++) {
-        put_pixel_to_buffer(buffer, config, 0, y, border_color);
-        put_pixel_to_buffer(buffer, config, config->img_width - 1, y, border_color);
-    }
-}
-
-int pan_display(fb_layer_config *config, int buffer_index) {
-    struct fb_var_screeninfo var = config->vinfo;
-    var.yoffset = buffer_index * config->img_height;
-    
-    if (ioctl(config->fd, FBIOPAN_DISPLAY, &var) != 0) {
+    // 打开BMP文件
+    file = fopen(filename, "rb");
+    if (!file) {
+        printf("Error: Cannot open BMP file: %s\n", filename);
         return -1;
     }
     
-    return 0;
-}
-
-void swap_buffers(fb_layer_config *config) {
-    // Triple buffer mode with pan display
-    if (pan_display(config, config->current_buffer) == 0) {
-        config->current_buffer = (config->current_buffer + 1) % 3;
+    // 读取文件头
+    if (fread(&fileHeader, sizeof(BITMAPFILEHEADER), 1, file) != 1) {
+        printf("Error: Cannot read BMP file header\n");
+        fclose(file);
+        return -1;
     }
-}
-
-void print_fps_stats(fb_layer_config *config) {
-    config->frame_count++;
     
-    if (config->frame_count % 60 == 0) {
-        struct timespec current_time;
-        clock_gettime(CLOCK_MONOTONIC, &current_time);
-        
-        long elapsed_ns = (current_time.tv_sec - config->last_fps_time.tv_sec) * 1000000000 +
-                         (current_time.tv_nsec - config->last_fps_time.tv_nsec);
-        double fps = 60.0 * 1000000000.0 / elapsed_ns;
-        
-        printf("FPS: %.2f (Triple buffer mode)\n", fps);
-        
-        config->last_fps_time = current_time;
+    // 检查BMP标识
+    if (fileHeader.bfType != 0x4D42) { // "BM"
+        printf("Error: Not a valid BMP file\n");
+        fclose(file);
+        return -1;
     }
+    
+    // 读取信息头
+    if (fread(&infoHeader, sizeof(BITMAPINFOHEADER), 1, file) != 1) {
+        printf("Error: Cannot read BMP info header\n");
+        fclose(file);
+        return -1;
+    }
+    
+    printf("BMP Info: %dx%d, %d bits\n", infoHeader.biWidth, infoHeader.biHeight, infoHeader.biBitCount);
+    
+    // 检查图片尺寸
+    if (infoHeader.biWidth != DISPLAY_WIDTH || abs(infoHeader.biHeight) != DISPLAY_HEIGHT) {
+        printf("Error: BMP size (%dx%d) doesn't match display size (%dx%d)\n", 
+               infoHeader.biWidth, abs(infoHeader.biHeight), DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        fclose(file);
+        return -1;
+    }
+    
+    // 目前只支持24位和32位BMP
+    if (infoHeader.biBitCount != 24 && infoHeader.biBitCount != 32) {
+        printf("Error: Only 24-bit and 32-bit BMP files are supported\n");
+        fclose(file);
+        return -1;
+    }
+    
+    // 跳转到像素数据
+    fseek(file, fileHeader.bfOffBits, SEEK_SET);
+    
+    // 计算行填充
+    int row_padded = (infoHeader.biWidth * infoHeader.biBitCount / 8 + 3) & (~3);
+    unsigned char *row_data = malloc(row_padded);
+    if (!row_data) {
+        printf("Error: Cannot allocate memory for row data\n");
+        fclose(file);
+        return -1;
+    }
+    
+    // 读取像素数据
+    int height = abs(infoHeader.biHeight);
+    int is_bottom_up = (infoHeader.biHeight > 0);
+    
+    for (int y = 0; y < height; y++) {
+        if (fread(row_data, row_padded, 1, file) != 1) {
+            printf("Error: Cannot read pixel data at row %d\n", y);
+            free(row_data);
+            fclose(file);
+            return -1;
+        }
+        
+        // 计算实际的y坐标（BMP通常是底部向上存储）
+        int actual_y = is_bottom_up ? (height - 1 - y) : y;
+        
+        for (int x = 0; x < infoHeader.biWidth; x++) {
+            uint32_t pixel = 0xFF000000; // Alpha = 255
+            
+            if (infoHeader.biBitCount == 24) {
+                // 24位BMP: BGR顺序
+                unsigned char b = row_data[x * 3 + 0];
+                unsigned char g = row_data[x * 3 + 1];
+                unsigned char r = row_data[x * 3 + 2];
+                pixel |= (r << 16) | (g << 8) | b;
+            } else if (infoHeader.biBitCount == 32) {
+                // 32位BMP: BGRA顺序
+                unsigned char b = row_data[x * 4 + 0];
+                unsigned char g = row_data[x * 4 + 1];
+                unsigned char r = row_data[x * 4 + 2];
+                unsigned char a = row_data[x * 4 + 3];
+                pixel = (a << 24) | (r << 16) | (g << 8) | b;
+            }
+            
+            put_pixel_to_buffer(config->framebuffer, config, x, actual_y, pixel);
+        }
+    }
+    
+    free(row_data);
+    fclose(file);
+    
+    printf("BMP file loaded successfully: %s\n", filename);
+    return 0;
 }
 
 static void register_signal_handler(void (*sig_handler)(int))
@@ -479,26 +451,31 @@ static void register_signal_handler(void (*sig_handler)(int))
 }
 
 void print_usage(const char* prog_name) {
-    printf("Usage: %s [resolution_index]\n", prog_name);
-    printf("resolution_index:\n");
-    printf("\t 0) 1280x960 (default)\n");
-    printf("\nThis program initializes VO/MIPI-TX and runs rectangle collision animation.\n");
-    printf("Fixed configuration: fb0, position (0,0), triple buffering, no VSync\n");
+    printf("Usage: %s [logo_file]\n", prog_name);
+    printf("logo_file: BMP file to display (default: logo.bmp)\n");
+    printf("\nThis program initializes VO/MIPI-TX and displays a static BMP logo.\n");
+    printf("Fixed configuration: 1280x960, fb0, position (0,0)\n");
+    printf("BMP file must be 1280x960, 24-bit or 32-bit format\n");
 }
 
 int main(int argc, char *argv[])
 {
     vs_int32_t ret = VS_SUCCESS;
     vs_size_s display_size = {DISPLAY_WIDTH, DISPLAY_HEIGHT};
+    const char *logo_file = LOGO_FILE;
 
-    printf("Starting integrated VO initialization and framebuffer animation\n");
+    printf("Starting integrated VO initialization and logo display\n");
 
+    // 解析命令行参数
     if (argc > 1) {
         if (!strncmp(argv[1], "-h", 2)) {
             print_usage(argv[0]);
             return VS_SUCCESS;
         }
+        logo_file = argv[1];
     }
+
+    printf("Logo file: %s\n", logo_file);
 
     // 注册信号处理器
     register_signal_handler(signal_handler);
@@ -520,18 +497,13 @@ int main(int argc, char *argv[])
     layer_config.img_width = DISPLAY_WIDTH;
     layer_config.img_height = DISPLAY_HEIGHT;
     layer_config.fd = -1;
-    layer_config.buffer_mode = BUFFER_MODE_TRIPLE;
-    layer_config.use_vsync = USE_VSYNC;
-    layer_config.enhanced_sync = ENHANCED_SYNC;
-    layer_config.current_buffer = 0;
     layer_config.vo_layerid = 2;  // fb0对应layer 2
 
     printf("Configuration:\n");
     printf("  Display: %dx%d\n", DISPLAY_WIDTH, DISPLAY_HEIGHT);
     printf("  Framebuffer: /dev/fb%d\n", FB_ID);
     printf("  Position: (%d, %d)\n", LAYER_POS_X, LAYER_POS_Y);
-    printf("  Buffer Mode: Triple buffering\n");
-    printf("  VSync: Disabled\n");
+    printf("  Mode: Static logo display\n");
 
     if (init_framebuffer_layer(&layer_config) != 0) {
         vs_sample_trace("Framebuffer initialization failed\n");
@@ -539,43 +511,21 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // 第三阶段：运行动画
-    vs_sample_trace("Starting rectangle collision animation...\n");
+    // 第三阶段：加载并显示logo
+    vs_sample_trace("Loading and displaying logo...\n");
     
-    initialize_rects(&layer_config);
+    if (load_bmp_to_framebuffer(logo_file, &layer_config) != 0) {
+        vs_sample_trace("Failed to load logo file: %s\n", logo_file);
+        cleanup_framebuffer_layer(&layer_config);
+        cleanup_vo_hardware();
+        return 1;
+    }
 
-    struct timespec start, end;
-    long frame_duration = 1000000000 / FPS;
-    
-    printf("Animation started (Press Ctrl+C to exit)\n");
-    
+    vs_sample_trace("Logo displayed successfully. Press Ctrl+C to exit.\n");
+
+    // 等待退出信号
     while (!g_stop_flag) {
-        clock_gettime(CLOCK_MONOTONIC, &start);
-
-        // 在后台缓冲区绘制
-        char *back_buffer = layer_config.buffer[layer_config.current_buffer];
-        
-        update_rect_positions(&layer_config);
-        draw_rects_to_buffer(back_buffer, &layer_config);
-        draw_border_to_buffer(back_buffer, &layer_config);
-
-        // 交换缓冲区
-        swap_buffers(&layer_config);
-        
-        // 性能统计
-        print_fps_stats(&layer_config);
-
-        // 帧率控制
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        long elapsed = (end.tv_sec - start.tv_sec) * 1000000000 + 
-                      (end.tv_nsec - start.tv_nsec);
-        
-        if (elapsed < frame_duration) {
-            struct timespec remaining;
-            remaining.tv_sec = 0;
-            remaining.tv_nsec = frame_duration - elapsed;
-            nanosleep(&remaining, NULL);
-        }
+        usleep(100000); // 100ms
     }
 
     // 清理资源
