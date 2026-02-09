@@ -1107,6 +1107,19 @@ vs_int32_t sample_common_vo_dev_enable(sample_vo_cfg_s* p_vo_config)
         memcpy(&dev_attr.timing_info, &p_vo_config->timing, sizeof(vs_vo_timing_s));
         vs_mal_vo_clk_set(p_vo_config->vo_devid, &p_vo_config->clk_info);
     }
+    // else {
+    //     // Explicitly set clock for CVBS standard resolutions if not provided
+    //     if (p_vo_config->clk_info.pixel_clk_rate == 0) {
+    //         if (p_vo_config->vo_output == E_VO_OUTPUT_TYPE_PAL || 
+    //             p_vo_config->vo_output == E_VO_OUTPUT_TYPE_NTSC ||
+    //             p_vo_config->vo_output == E_VO_OUTPUT_TYPE_480P60 || 
+    //             p_vo_config->vo_output == E_VO_OUTPUT_TYPE_576P50) {
+    //             // 13.5MHz * 88 = 1188MHz PLL
+    //             p_vo_config->clk_info.pixel_clk_rate = 13500000;
+    //             p_vo_config->clk_info.clk_div = 88;
+    //         }
+    //     }
+    // }
 
     ret = vs_mal_vo_dev_attr_set(p_vo_config->vo_devid, &dev_attr);
     if (ret != VS_SUCCESS) {
@@ -1135,8 +1148,8 @@ vs_int32_t sample_common_vo_dev_enable(sample_vo_cfg_s* p_vo_config)
         }
     }
 
-    if ((p_vo_config->vo_output != E_VO_OUTPUT_TYPE_USER) &&
-        (p_vo_config->clk_info.clk_div != 0) &&
+    // Force set clock if we have info (now includes CVBS fallback)
+    if ((p_vo_config->clk_info.clk_div != 0) &&
         (p_vo_config->clk_info.pixel_clk_rate != 0)) {
         ret = vs_mal_vo_clk_set(p_vo_config->vo_devid, &p_vo_config->clk_info);
         if (ret != VS_SUCCESS) {
