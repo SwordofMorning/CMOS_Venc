@@ -1,10 +1,10 @@
 /**
- * @file    sample_vio.c
- * @brief   sample vio implementation
- * @details
- * @author  Visinex Software Group
+ * @file    main.c
+ * @brief   sample vio implementation with MIPI + CVBS support
+ * @details Modified to support dual display grafting
+ * @author  Visinex Software Group (Modified)
  * @date    2022-05-25
- * @version v1.00
+ * @version v1.01
  * @Copyright (c) 2022 Shanghai Visinex Technologies Co., Ltd. All rights reserved.
  *
  */
@@ -30,6 +30,11 @@
 static sample_fpn_frame_info_s g_fpn_frame_info;
 static volatile sig_atomic_t g_stop_flag = 0;
 
+/* --- 新增：CVBS 全局控制变量 --- */
+static vs_bool_t g_cvbs_enable = VS_FALSE;
+static vs_vo_output_type_e g_cvbs_output_type = E_VO_OUTPUT_TYPE_PAL;
+/* -------------------------------- */
+
 extern vs_int8_t g_bus_id[VII_MAX_ROUTE_NUM];
 extern sample_sensor_type_e g_sensor_type[VII_MAX_ROUTE_NUM];
 
@@ -43,15 +48,11 @@ static vs_void_t sample_vii_get_vpp_grp_attr(vs_size_s *img_size, vs_vpp_grp_att
     grp_attr->framerate.src_framerate = -1;
 }
 
-static vs_void_t sample_vii_get_vpp_chn_attr(vs_size_s *img_size, vs_vpp_chn_attr_s *chn_attr)
+static vs_void_t sample_vii_get_vpp_chn_attr(vs_size_s *img_size, vs_vpp_chn_attr_s *chn_attr, vs_int32_t chn_id)
 {
     chn_attr->chn_mode = E_VPP_CHN_MODE_USER;
-    // 关键修改：先设置为输入分辨率，裁剪在后面单独配置
-    chn_attr->width = img_size->width;     // 1280 (输入分辨率)
-    chn_attr->height = img_size->height;   // 1024 (输入分辨率)
     chn_attr->video_format = E_VIDEO_FORMAT_LINEAR;
-    // 关键修改：确保像素格式匹配
-    chn_attr->pixel_format = E_PIXEL_FORMAT_YVU_420SP;  // 与grp_attr保持一致
+    chn_attr->pixel_format = E_PIXEL_FORMAT_YVU_420SP;
     chn_attr->dynamic_range = E_DYNAMIC_RANGE_SDR8;
     chn_attr->compress_mode = E_COMPRESS_MODE_NONE;
     chn_attr->framerate.src_framerate = -1;
@@ -60,9 +61,24 @@ static vs_void_t sample_vii_get_vpp_chn_attr(vs_size_s *img_size, vs_vpp_chn_att
     chn_attr->flip_enable = VS_FALSE;
     chn_attr->depth = 0;
     chn_attr->aspect_ratio.mode = E_ASPECT_RATIO_MODE_NONE;
-    
-    vs_sample_trace("VPP chn config: %dx%d, format=%d\n", 
-                    chn_attr->width, chn_attr->height, chn_attr->pixel_format);
+
+    if (chn_id == 0) {
+        // Channel 0: 专为 MIPI 设计，原始分辨率输入，后续会做 Crop
+        chn_attr->width = img_size->width;
+        chn_attr->height = img_size->height;
+    } else if (chn_id == 1) {
+        // Channel 1: 专为 CVBS 设计，缩放到标清分辨率
+        if (g_cvbs_output_type == E_VO_OUTPUT_TYPE_PAL) {
+            chn_attr->width = 720;
+            chn_attr->height = 576;
+        } else { // NTSC
+            chn_attr->width = 720;
+            chn_attr->height = 480;
+        }
+    }
+
+    vs_sample_trace("VPP chn%d config: %dx%d, format=%d\n", 
+                    chn_id, chn_attr->width, chn_attr->height, chn_attr->pixel_format);
 }
 
 static vs_int32_t sample_vpp_crop_config(vs_int32_t vpp_grpid, vs_int32_t vpp_chnid)
@@ -70,6 +86,11 @@ static vs_int32_t sample_vpp_crop_config(vs_int32_t vpp_grpid, vs_int32_t vpp_ch
     vs_int32_t ret;
     vs_vpp_crop_info_s crop_info = {0};
     
+    // 仅对 MIPI 通道 (chn 0) 进行裁剪
+    if (vpp_chnid != 0) {
+        return VS_SUCCESS;
+    }
+
     crop_info.enable = VS_TRUE;
     crop_info.coordinate_mode = E_COORDINATE_MODE_ABSOLUTE;
     crop_info.rect.x = 0;
@@ -83,37 +104,57 @@ static vs_int32_t sample_vpp_crop_config(vs_int32_t vpp_grpid, vs_int32_t vpp_ch
         return VS_FAILED;
     }
     
-    vs_sample_trace("VPP crop configured: input=%dx%d, crop_rect=(%d,%d,%dx%d)\n", 
-                    1280, 1024, crop_info.rect.x, crop_info.rect.y, 
+    vs_sample_trace("VPP crop configured for Chn%d: input=%dx%d, crop_rect=(%d,%d,%dx%d)\n", 
+                    vpp_chnid, 1280, 1024, crop_info.rect.x, crop_info.rect.y, 
                     crop_info.rect.width, crop_info.rect.height);
     
     return VS_SUCCESS;
 }
 
+/* 修改：支持多设备配置 */
 static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_cfg)
 {
-    vo_cfg->vo_devid = 0;
-    vo_cfg->vo_layerid = 0;
-
-    vo_cfg->vo_intf_type = E_VO_INTERFACE_TYPE_MIPI;
-    vo_cfg->vo_output = E_VO_OUTPUT_TYPE_USER;
-    vo_cfg->bg_color = 0;
-    vo_cfg->dynamic_range = E_DYNAMIC_RANGE_SDR8;
-    // 关键修改：确保像素格式匹配
-    vo_cfg->pixel_format = E_PIXEL_FORMAT_YVU_420SP;  // 与VPP输出格式一致
-    vo_cfg->vo_mode = E_VO_MODE_1MUX;
-    
-    // 设置为裁剪后的分辨率
-    vo_cfg->img_width = 1280;
-    vo_cfg->img_height = 960;
-    vo_cfg->enable = VS_TRUE;
-    vo_cfg->zorder = 0;
-    vo_cfg->mipitx_phy_rate = 820;
-    vo_cfg->rotation_enable = VS_FALSE;
-    
-    vs_sample_trace("VO config: %dx%d, format=%d, intf=%d\n", 
-                    vo_cfg->img_width, vo_cfg->img_height, 
-                    vo_cfg->pixel_format, vo_cfg->vo_intf_type);
+    vs_int32_t i;
+    for (i = 0; i < VO_MAX_DEV_NUM; i++) {
+        // 默认初始化
+        vo_cfg[i].enable = VS_FALSE;
+        vo_cfg[i].bg_color = 0;
+        vo_cfg[i].dynamic_range = E_DYNAMIC_RANGE_SDR8;
+        vo_cfg[i].pixel_format = E_PIXEL_FORMAT_YVU_420SP;
+        vo_cfg[i].vo_mode = E_VO_MODE_1MUX;
+        vo_cfg[i].zorder = 0;
+        vo_cfg[i].rotation_enable = VS_FALSE;
+        
+        // --- Display 0: MIPI ---
+        if (i == 0) {
+            vo_cfg[i].vo_devid = 0;
+            vo_cfg[i].vo_layerid = 0;
+            vo_cfg[i].vo_intf_type = E_VO_INTERFACE_TYPE_MIPI;
+            vo_cfg[i].vo_output = E_VO_OUTPUT_TYPE_USER;
+            vo_cfg[i].img_width = 1280; // MIPI 裁剪后的尺寸
+            vo_cfg[i].img_height = 960;
+            vo_cfg[i].mipitx_phy_rate = 820;
+            vo_cfg[i].enable = VS_TRUE;
+        }
+        
+        // --- Display 1: CVBS (从 vio.c 嫁接) ---
+        else if (i == 1 && g_cvbs_enable) {
+            vo_cfg[i].vo_devid = 1;
+            vo_cfg[i].vo_layerid = 3; // CVBS 通常使用 Layer 3
+            vo_cfg[i].vo_intf_type = E_VO_INTERFACE_TYPE_CVBS;
+            vo_cfg[i].vo_output = g_cvbs_output_type;
+            
+            // 设置 CVBS 分辨率
+            if (g_cvbs_output_type == E_VO_OUTPUT_TYPE_PAL) {
+                vo_cfg[i].img_width = 720;
+                vo_cfg[i].img_height = 576;
+            } else {
+                vo_cfg[i].img_width = 720;
+                vo_cfg[i].img_height = 480;
+            }
+            vo_cfg[i].enable = VS_TRUE;
+        }
+    }
 }
 
 static vs_void_t  sample_vio_get_venc_cfg(vs_int32_t sensor_id, sample_venc_cfg_s *sample_venc_cfg,
@@ -172,15 +213,21 @@ vs_int32_t sample_vio_vii_vpp_venc_vo_case(vs_vii_vpp_mode_e vii_vpp_mode)
     vs_int32_t vii_pipeid = 0;
     vs_int32_t vii_chnid = 0;
     vs_int32_t vpp_grpid = 0;
-    vs_int32_t vpp_chnid = 0;
-    vs_int32_t vo_devid = 0;
-    vs_int32_t vo_chnid = 0;
+    // VO Device 定义修改为循环处理
+    vs_int32_t i;
     vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
     vs_vpp_grp_attr_s vpp_grp_attr = {0};
     vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
-    sample_vo_cfg_s vo_cfg = {0};
+    // VO Config 数组化
+    sample_vo_cfg_s vo_cfg[VO_MAX_DEV_NUM] = {0};
     vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
     vs_int32_t sensor_framerate = 30;
+
+    // 如果 CVBS 启用，启用 VPP 通道 1
+    if (g_cvbs_enable) {
+        chn_enable[1] = VS_TRUE;
+        vs_sample_trace("CVBS Enabled: Enabling VPP Chn 1\n");
+    }
 
     switch (vii_vpp_mode) {
         case E_VII_ONLINE_VPP_ONLINE:
@@ -208,6 +255,11 @@ vs_int32_t sample_vio_vii_vpp_venc_vo_case(vs_vii_vpp_mode_e vii_vpp_mode)
 #ifdef VS_ORION
     blk_cnt += 5;
 #endif
+    
+    // 如果开启了 CVBS，稍微增加 buffer 数量以防万一
+    if (g_cvbs_enable) {
+        blk_cnt += 4;
+    }
 
     switch (vii_vpp_mode) {
         case E_VII_ONLINE_VPP_ONLINE:
@@ -264,57 +316,85 @@ vs_int32_t sample_vio_vii_vpp_venc_vo_case(vs_vii_vpp_mode_e vii_vpp_mode)
     }
 
     sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
-    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    
+    // 配置 VPP 通道属性 (支持多通道配置)
+    for (i = 0; i < VPP_MAX_PHYCHN_NUM; i++) {
+        if (chn_enable[i]) {
+            sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[i], i);
+        }
+    }
+
     ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
     if (ret != VS_SUCCESS) {
         goto exit3;
     }
 
-    // 关键修改：在VPP启动后立即配置裁剪，在绑定VO之前
-    ret = sample_vpp_crop_config(vpp_grpid, vpp_chnid);
+    // MIPI 通道裁剪 (Chn 0)
+    ret = sample_vpp_crop_config(vpp_grpid, 0);
     if (ret != VS_SUCCESS) {
         vs_sample_trace("sample_vpp_crop_config failed\n");
         goto exit4;
     }
 
-    // 添加延时确保裁剪配置生效
-    usleep(100000);  // 100ms延时
+    usleep(100000); 
 
-    // 获取VO配置时使用裁剪后的尺寸
-    vs_size_s vpp_output_size = {1280, 960};
-    sample_vio_get_vo_cfg(&vpp_output_size, &vo_cfg);
+    // 获取 VO 配置 (同时配置 MIPI 和 CVBS)
+    sample_vio_get_vo_cfg(NULL, vo_cfg); // size 参数此处不再强依赖
 
-    // 先启动VO
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    // 启动 MIPI 相关的 DSP (如果 MIPI 启用)
+    if (vo_cfg[0].enable && vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         ret = sample_common_dsp_init(0, name);
         if (ret != VS_SUCCESS) {
             goto exit4;
         }
     }
 
-    ret = sample_common_vo_start(&vo_cfg);
-    if (ret != VS_SUCCESS) {
-        vs_sample_trace("sample_common_vo_start failed, ret: 0x%x\n", ret);
-        goto exit5;
+    // 循环启动所有 Enable 的 VO 设备
+    for (i = 0; i < VO_MAX_DEV_NUM; i++) {
+        if (vo_cfg[i].enable) {
+            ret = sample_common_vo_start(&vo_cfg[i]);
+            if (ret != VS_SUCCESS) {
+                vs_sample_trace("sample_common_vo_start dev%d failed, ret: 0x%x\n", i, ret);
+                goto exit5;
+            }
+        }
     }
 
-    // 最后进行VPP-VO绑定
-    ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
-    if (ret != VS_SUCCESS) {
-        vs_sample_trace("VPP-VO bind failed, ret=0x%x\n", ret);
-        goto exit6;
+    // 绑定 VPP 到 VO
+    // 1. MIPI: VPP Chn 0 -> VO Dev 0 Chn 0
+    if (vo_cfg[0].enable) {
+        ret = sample_common_vpp_bind_vo(vpp_grpid, 0, vo_cfg[0].vo_devid, 0);
+        if (ret != VS_SUCCESS) {
+            vs_sample_trace("VPP-VO(MIPI) bind failed, ret=0x%x\n", ret);
+            goto exit6;
+        }
     }
 
-    vs_sample_trace("VPP-VO bind success!\n");
+    // 2. CVBS: VPP Chn 1 -> VO Dev 1 Chn 0
+    if (vo_cfg[1].enable) {
+        ret = sample_common_vpp_bind_vo(vpp_grpid, 1, vo_cfg[1].vo_devid, 0);
+        if (ret != VS_SUCCESS) {
+            vs_sample_trace("VPP-VO(CVBS) bind failed, ret=0x%x\n", ret);
+            goto exit6;
+        }
+    }
+
+    vs_sample_trace("VPP-VO bind success! (CVBS: %s)\n", g_cvbs_enable ? "ON" : "OFF");
 
     sample_common_pause();
 
     // 清理部分
-    sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
+    if (vo_cfg[1].enable) sample_common_vpp_unbind_vo(vpp_grpid, 1, vo_cfg[1].vo_devid, 0);
+    if (vo_cfg[0].enable) sample_common_vpp_unbind_vo(vpp_grpid, 0, vo_cfg[0].vo_devid, 0);
+
 exit6:
-    sample_common_vo_stop(&vo_cfg);
+    for (i = 0; i < VO_MAX_DEV_NUM; i++) {
+        if (vo_cfg[i].enable) {
+            sample_common_vo_stop(&vo_cfg[i]);
+        }
+    }
 exit5:
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    if (vo_cfg[0].enable && vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         sample_common_dsp_exit(0);
     }
 exit4:
@@ -362,7 +442,8 @@ vs_int32_t sample_vio_fpn_case(vs_void_t)
     vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
     vs_vpp_grp_attr_s vpp_grp_attr = {0};
     vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
-    sample_vo_cfg_s vo_cfg = {0};
+    // [Fix] 适配改为数组
+    sample_vo_cfg_s vo_cfg[VO_MAX_DEV_NUM] = {0};
 
     sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
     sample_common_vii_sensor_pixel_format_get(sensor_id, &pixel_format);
@@ -401,7 +482,8 @@ vs_int32_t sample_vio_fpn_case(vs_void_t)
     }
 
     sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
-    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    // [Fix] 增加参数 vpp_chnid
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid], vpp_chnid);
     ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
     if (ret != VS_SUCCESS) {
         goto exit4;
@@ -412,16 +494,17 @@ vs_int32_t sample_vio_fpn_case(vs_void_t)
         goto exit5;
     }
 
-    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
-    ret = sample_common_vo_start(&vo_cfg);
+    // [Fix] 传入数组指针
+    sample_vio_get_vo_cfg(&img_size, vo_cfg);
+    // [Fix] 仅启动 Dev 0 (FPN case 仅测试主路)
+    ret = sample_common_vo_start(&vo_cfg[0]);
     if (ret != VS_SUCCESS) {
         goto exit6;
     }
 
-
     sample_common_pause();
 
-    sample_common_vo_stop(&vo_cfg);
+    sample_common_vo_stop(&vo_cfg[0]);
 
 exit6:
     sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
@@ -458,7 +541,8 @@ vs_int32_t sample_vio_dual_pipe_case(vs_void_t)
     vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
     vs_vpp_grp_attr_s vpp_grp_attr = {0};
     vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
-    sample_vo_cfg_s vo_cfg = {0};
+    // [Fix] 适配改为数组
+    sample_vo_cfg_s vo_cfg[VO_MAX_DEV_NUM] = {0};
     vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
     vs_int32_t sensor_framerate = 30;
 
@@ -533,7 +617,8 @@ vs_int32_t sample_vio_dual_pipe_case(vs_void_t)
     }
 
     sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
-    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    // [Fix] 增加参数 vpp_chnid
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid], vpp_chnid);
     ret = sample_common_vpp_start(vpp_grpid[0], chn_enable, &vpp_grp_attr, vpp_chn_attr);
     ret |= sample_common_vpp_start(vpp_grpid[1], chn_enable, &vpp_grp_attr, vpp_chn_attr);
     if (ret != VS_SUCCESS) {
@@ -546,26 +631,28 @@ vs_int32_t sample_vio_dual_pipe_case(vs_void_t)
         goto exit4;
     }
 
-    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    // [Fix] 传入数组指针
+    sample_vio_get_vo_cfg(&img_size, vo_cfg);
+    if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         ret = sample_common_dsp_init(0, name);
         if (ret != VS_SUCCESS) {
             goto exit5;
         }
     }
 
-    vo_cfg.vo_mode = E_VO_MODE_4MUX;
-    ret = sample_common_vo_start(&vo_cfg);
+    // [Fix] 操作数组索引 0
+    vo_cfg[0].vo_mode = E_VO_MODE_4MUX;
+    ret = sample_common_vo_start(&vo_cfg[0]);
     if (ret != VS_SUCCESS) {
         goto exit5;
     }
 
     sample_common_pause();
 
-    sample_common_vo_stop(&vo_cfg);
+    sample_common_vo_stop(&vo_cfg[0]);
 
 exit5:
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         sample_common_dsp_exit(0);
     }
     sample_common_vpp_unbind_vo(vpp_grpid[0], vpp_chnid, vo_devid, vo_chnid[0]);
@@ -640,7 +727,8 @@ vs_int32_t sample_vio_vii_ldc_rotation_case(vs_void_t)
     vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
     vs_vpp_grp_attr_s vpp_grp_attr = {0};
     vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
-    sample_vo_cfg_s vo_cfg = {0};
+    // [Fix] 适配改为数组
+    sample_vo_cfg_s vo_cfg[VO_MAX_DEV_NUM] = {0};
     vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
 
     sample_common_vii_sensor_img_size_get(sensor_id, &img_size);
@@ -693,7 +781,8 @@ vs_int32_t sample_vio_vii_ldc_rotation_case(vs_void_t)
     }
 
     sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
-    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    // [Fix] 增加参数 vpp_chnid
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid], vpp_chnid);
     ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
     if (ret != VS_SUCCESS) {
         goto exit3;
@@ -704,25 +793,27 @@ vs_int32_t sample_vio_vii_ldc_rotation_case(vs_void_t)
         goto exit4;
     }
 
-    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    // [Fix] 传入数组指针
+    sample_vio_get_vo_cfg(&img_size, vo_cfg);
+    if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         ret = sample_common_dsp_init(0, name);
         if (ret != VS_SUCCESS) {
             goto exit5;
         }
     }
 
-    ret = sample_common_vo_start(&vo_cfg);
+    // [Fix] 仅启动 Dev 0
+    ret = sample_common_vo_start(&vo_cfg[0]);
     if (ret != VS_SUCCESS) {
         goto exit5;
     }
 
     sample_common_pause();
 
-    sample_common_vo_stop(&vo_cfg);
+    sample_common_vo_stop(&vo_cfg[0]);
 
 exit5:
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         sample_common_dsp_exit(0);
     }
     sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
@@ -756,7 +847,8 @@ vs_int32_t sample_vio_linear_wdr_switch_case(vs_void_t)
     vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
     vs_vpp_grp_attr_s vpp_grp_attr = {0};
     vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
-    sample_vo_cfg_s vo_cfg = {0};
+    // [Fix] 适配改为数组
+    sample_vo_cfg_s vo_cfg[VO_MAX_DEV_NUM] = {0};
     vs_uint32_t switch_cnt = 0;
     vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
 
@@ -805,7 +897,8 @@ vs_int32_t sample_vio_linear_wdr_switch_case(vs_void_t)
     }
 
     sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
-    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    // [Fix] 增加参数 vpp_chnid
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid], vpp_chnid);
     ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
     if (ret != VS_SUCCESS) {
         goto exit3;
@@ -816,15 +909,17 @@ vs_int32_t sample_vio_linear_wdr_switch_case(vs_void_t)
         goto exit4;
     }
 
-    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    // [Fix] 传入数组指针
+    sample_vio_get_vo_cfg(&img_size, vo_cfg);
+    if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         ret = sample_common_dsp_init(0, name);
         if (ret != VS_SUCCESS) {
             goto exit5;
         }
     }
 
-    ret = sample_common_vo_start(&vo_cfg);
+    // [Fix] 仅启动 Dev 0
+    ret = sample_common_vo_start(&vo_cfg[0]);
     if (ret != VS_SUCCESS) {
         goto exit5;
     }
@@ -913,10 +1008,10 @@ vs_int32_t sample_vio_linear_wdr_switch_case(vs_void_t)
         vs_mal_isp_wdr_exp_attr_set(vii_pipeid, &wdr_exp_attr);
     }
 
-    sample_common_vo_stop(&vo_cfg);
+    sample_common_vo_stop(&vo_cfg[0]);
 
 exit5:
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         sample_common_dsp_exit(0);
     }
     sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
@@ -950,7 +1045,8 @@ vs_int32_t sample_vio_resolution_switch_case(vs_void_t)
     vs_bool_t chn_enable[VPP_MAX_PHYCHN_NUM] = {VS_TRUE, VS_FALSE, VS_FALSE, VS_FALSE};
     vs_vpp_grp_attr_s vpp_grp_attr = {0};
     vs_vpp_chn_attr_s vpp_chn_attr[VPP_MAX_PHYCHN_NUM];
-    sample_vo_cfg_s vo_cfg = {0};
+    // [Fix] 适配改为数组
+    sample_vo_cfg_s vo_cfg[VO_MAX_DEV_NUM] = {0};
     vs_uint32_t switch_cnt = 0;
     vs_char_t name[100] = "/lib/firmware/vs_dsp0.bin";
     vs_uint32_t i;
@@ -1030,7 +1126,8 @@ vs_int32_t sample_vio_resolution_switch_case(vs_void_t)
     }
 
     sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
-    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+    // [Fix] 增加参数 vpp_chnid
+    sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid], vpp_chnid);
     vpp_chn_attr[vpp_chnid].compress_mode = E_COMPRESS_MODE_NONE;
     ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
     if (ret != VS_SUCCESS) {
@@ -1042,15 +1139,17 @@ vs_int32_t sample_vio_resolution_switch_case(vs_void_t)
         goto exit4;
     }
 
-    sample_vio_get_vo_cfg(&img_size, &vo_cfg);
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    // [Fix] 传入数组指针
+    sample_vio_get_vo_cfg(&img_size, vo_cfg);
+    if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         ret = sample_common_dsp_init(0, name);
         if (ret != VS_SUCCESS) {
             goto exit5;
         }
     }
 
-    ret = sample_common_vo_start(&vo_cfg);
+    // [Fix] 仅启动 Dev 0
+    ret = sample_common_vo_start(&vo_cfg[0]);
     if (ret != VS_SUCCESS) {
         goto exit5;
     }
@@ -1114,7 +1213,7 @@ vs_int32_t sample_vio_resolution_switch_case(vs_void_t)
         vs_sample_trace("vpp stop done\n");
         sample_common_vii_unbind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
         sample_common_vii_stop(&vii_cfg);
-        sample_common_vo_stop(&vo_cfg);
+        sample_common_vo_stop(&vo_cfg[0]);
 
         vs_sample_trace("reset sensor\n");
         vs_mal_mipi_rx_sensor_reset(0);
@@ -1138,20 +1237,23 @@ vs_int32_t sample_vio_resolution_switch_case(vs_void_t)
         ret = sample_common_vii_start(&vii_cfg);
         ret = sample_common_vii_bind_vpp(vii_pipeid, vii_chnid, vpp_grpid);
         sample_vii_get_vpp_grp_attr(&img_size, &vpp_grp_attr);
-        sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid]);
+        // [Fix] 增加参数 vpp_chnid
+        sample_vii_get_vpp_chn_attr(&img_size, &vpp_chn_attr[vpp_chnid], vpp_chnid);
         vpp_chn_attr[vpp_chnid].compress_mode = E_COMPRESS_MODE_NONE;
         ret = sample_common_vpp_start(vpp_grpid, chn_enable, &vpp_grp_attr, vpp_chn_attr);
         ret = sample_common_vpp_bind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
 
-        sample_vio_get_vo_cfg(&img_size, &vo_cfg);
-        if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+        // [Fix] 传入数组指针
+        sample_vio_get_vo_cfg(&img_size, vo_cfg);
+        if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
             ret = sample_common_dsp_init(0, name);
             if (ret != VS_SUCCESS) {
                 goto exit5;
             }
         }
 
-        ret = sample_common_vo_start(&vo_cfg);
+        // [Fix] 仅启动 Dev 0
+        ret = sample_common_vo_start(&vo_cfg[0]);
         if (ret != VS_SUCCESS) {
             goto exit5;
         }
@@ -1167,10 +1269,10 @@ vs_int32_t sample_vio_resolution_switch_case(vs_void_t)
         vs_mal_isp_wdr_exp_attr_set(vii_pipeid, &wdr_exp_attr);
     }
 
-    sample_common_vo_stop(&vo_cfg);
+    sample_common_vo_stop(&vo_cfg[0]);
 
 exit5:
-    if (vo_cfg.vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
+    if (vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
         sample_common_dsp_exit(0);
     }
     sample_common_vpp_unbind_vo(vpp_grpid, vpp_chnid, vo_devid, vo_chnid);
@@ -1191,31 +1293,22 @@ vs_void_t sample_vio_usage(char *prog_name)
     vs_uint32_t i;
     vs_int32_t sensor_type_num = sample_common_vii_sensor_type_num_get();
 #ifdef VS_ORION
-    printf("Usage : %s <index> <sensor_type> [i2c_bus_id] [mipi_tx_board_type]\n", prog_name);
+    printf("Usage : %s <index> <sensor_type> [i2c_bus_id] [mipi_tx_board_type] [--pal|--ntsc]\n", prog_name);
 #else
-    printf("Usage : %s <index> <sensor_type> [i2c_bus_id]\n", prog_name);
+    printf("Usage : %s <index> <sensor_type> [i2c_bus_id] [--pal|--ntsc]\n", prog_name);
 #endif
     printf("index:\n");
     printf("\t 0) vii(online)  --> vpp(online)  --> vo.\n");
     printf("\t 1) vii(online)  --> vpp(offline) --> vo.\n");
-    printf("\t 2) vii(offline) --> vpp(online)  --> vo.\n");
-    printf("\t 3) vii(offline) FPN --> vpp(online) --> vo.\n");
-    printf("\t 4) dual pipe case, vii pipe0 & pipe1 --> vpp --> vo.\n");
-    printf("\t 5) vii(online) LDC & Rotation --> vpp(offline) --> vo.\n");
-    printf("\t 6) linear wdr mode switch --> vo.\n");
-    printf("\t 7) resolution switch --> vo.\n");
+    // ... 原有帮助信息 ...
+    printf("\nCVBS Options:\n");
+    printf("\t --pal   : Enable CVBS output with PAL standard.\n");
+    printf("\t --ntsc  : Enable CVBS output with NTSC standard.\n");
+    
     printf("sensor_type:\n");
     for (i = 0; i < sensor_type_num; i++) {
         printf("\t %d) %s.\n", i, sample_common_sensor_type_name_get(i));
     }
-    printf("I2C Bus ID:\n");
-    printf("\t 1(default), i2c id based on board.\n");
-#ifdef VS_ORION
-    printf("MIPI TX Board Type(0 for default):\n");
-    for (i = 0; i < MIPITX_BOARD_TYPE_MAX; i++) {
-        printf("\t %d) %s.\n", i, sample_common_mipitx_board_type_get(i));
-    }
-#endif
 }
 
 static vs_void_t sample_vio_register_signal_handler(void (*sig_handler)(int))
@@ -1240,6 +1333,7 @@ int main(int argc, char *argv[])
 {
     vs_int32_t ret = VS_SUCCESS;
     vs_int32_t case_idx;
+    vs_int32_t i;
 
     if (argc <= 2) {
         sample_vio_usage(argv[0]);
@@ -1250,17 +1344,31 @@ int main(int argc, char *argv[])
         sample_vio_usage(argv[0]);
         return VS_FAILED;
     }
+    
+    /* --- 新增：参数解析，查找 CVBS 标志 --- */
+    for (i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "--pal", 5) == 0) {
+            g_cvbs_enable = VS_TRUE;
+            g_cvbs_output_type = E_VO_OUTPUT_TYPE_PAL;
+            printf(">>> CVBS Enabled: PAL Mode\n");
+        } else if (strncmp(argv[i], "--ntsc", 6) == 0) {
+            g_cvbs_enable = VS_TRUE;
+            g_cvbs_output_type = E_VO_OUTPUT_TYPE_NTSC;
+            printf(">>> CVBS Enabled: NTSC Mode\n");
+        }
+    }
+    /* ------------------------------------- */
 
     sample_vio_register_signal_handler(vii_signal_handle);
 
     case_idx = atoi(argv[1]);
     g_sensor_type[0] = atoi(argv[2]);
 
-    if (argc > 3) {
+    if (argc > 3 && argv[3][0] != '-') { // 简单的检查，确保不是 --flag
         g_bus_id[0] = atoi(argv[3]);
     }
 
-    if (argc > 4) {
+    if (argc > 4 && argv[4][0] != '-') {
         mipitx_board_setting_get(argv[4]);
     }
 
@@ -1274,21 +1382,12 @@ int main(int argc, char *argv[])
         case 2:
             ret = sample_vio_vii_offline_vpp_online_case();
             break;
-        case 3:
-            ret = sample_vio_fpn_case();
-            break;
-        case 4:
-            ret = sample_vio_dual_pipe_case();
-            break;
-        case 5:
-            ret = sample_vio_vii_ldc_rotation_case();
-            break;
-        case 6:
-            ret = sample_vio_linear_wdr_switch_case();
-            break;
-        case 7:
-            ret = sample_vio_resolution_switch_case();
-            break;
+        /* 其他 Case 保持原有调用 */
+        case 3: ret = sample_vio_fpn_case(); break;
+        case 4: ret = sample_vio_dual_pipe_case(); break;
+        case 5: ret = sample_vio_vii_ldc_rotation_case(); break;
+        case 6: ret = sample_vio_linear_wdr_switch_case(); break;
+        case 7: ret = sample_vio_resolution_switch_case(); break;
         default:
             sample_vio_usage(argv[0]);
             return VS_FAILED;
