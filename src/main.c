@@ -66,22 +66,12 @@ static vs_void_t sample_vii_get_vpp_chn_attr(vs_size_s *img_size, vs_vpp_chn_att
     chn_attr->depth = 0;
     chn_attr->aspect_ratio.mode = E_ASPECT_RATIO_MODE_NONE;
 
-    if (mode == 0) {
-        // Mode 0: MIPI Path - 保持输入分辨率，后续 Crop
-        chn_attr->width = img_size->width;
-        chn_attr->height = img_size->height;
-    } else if (mode == 1) {
-        // Mode 1: CVBS Path - 缩放至标清
-        if (g_cvbs_output_type == E_VO_OUTPUT_TYPE_PAL) {
-            chn_attr->width = 720;
-            chn_attr->height = 576;
-        } else { // NTSC
-            chn_attr->width = 720;
-            chn_attr->height = 480;
-        }
-    }
+    // 修改点：无论 Mode 0 (MIPI) 还是 Mode 1 (CVBS)，都使用 Sensor 原始分辨率
+    // 让 VO Layer 去做缩放，就像 vio.c 那样
+    chn_attr->width = img_size->width;
+    chn_attr->height = img_size->height;
 
-    vs_sample_trace("VPP config [Mode %d]: %dx%d\n", mode, chn_attr->width, chn_attr->height);
+    vs_sample_trace("VPP config [Mode %d]: %dx%d (Keep Original)\n", mode, chn_attr->width, chn_attr->height);
 }
 
 static vs_int32_t sample_vpp_crop_config(vs_int32_t vpp_grpid, vs_int32_t vpp_chnid)
@@ -108,6 +98,11 @@ static vs_int32_t sample_vpp_crop_config(vs_int32_t vpp_grpid, vs_int32_t vpp_ch
 static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_cfg)
 {
     vs_int32_t i;
+    
+    // 安全检查，防止空指针崩溃
+    vs_int32_t src_w = (img_size) ? img_size->width : 1920;
+    vs_int32_t src_h = (img_size) ? img_size->height : 1080;
+
     for (i = 0; i < VO_MAX_DEV_NUM; i++) {
         vo_cfg[i].enable = VS_FALSE;
         vo_cfg[i].bg_color = 0;
@@ -123,7 +118,7 @@ static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_
             vo_cfg[i].vo_layerid = 0;
             vo_cfg[i].vo_intf_type = E_VO_INTERFACE_TYPE_MIPI;
             vo_cfg[i].vo_output = E_VO_OUTPUT_TYPE_USER;
-            vo_cfg[i].img_width = 1280;
+            vo_cfg[i].img_width = 1280; // MIPI 屏如果是固定分辨率，这里可以写死，或者用 src_w
             vo_cfg[i].img_height = 960;
             vo_cfg[i].mipitx_phy_rate = 820;
             vo_cfg[i].enable = VS_TRUE;
@@ -132,17 +127,15 @@ static vs_void_t sample_vio_get_vo_cfg(vs_size_s *img_size, sample_vo_cfg_s *vo_
         // --- Display 1: CVBS ---
         else if (i == 1 && g_cvbs_enable) {
             vo_cfg[i].vo_devid = 1;
-            vo_cfg[i].vo_layerid = 3; // 关键：CVBS 使用 Layer 3，与 vio.c 保持一致
+            vo_cfg[i].vo_layerid = 3; 
             vo_cfg[i].vo_intf_type = E_VO_INTERFACE_TYPE_CVBS;
             vo_cfg[i].vo_output = g_cvbs_output_type;
             
-            if (g_cvbs_output_type == E_VO_OUTPUT_TYPE_PAL) {
-                vo_cfg[i].img_width = 720;
-                vo_cfg[i].img_height = 576;
-            } else {
-                vo_cfg[i].img_width = 720;
-                vo_cfg[i].img_height = 480;
-            }
+            // 修改点：VO Layer 的“输入图像尺寸”设置为 Sensor 原始尺寸
+            // VO 硬件会自动将其缩放到 PAL/NTSC 的输出尺寸
+            vo_cfg[i].img_width = src_w;
+            vo_cfg[i].img_height = src_h;
+
             vo_cfg[i].enable = VS_TRUE;
         }
     }
@@ -312,7 +305,7 @@ vs_int32_t sample_vio_vii_vpp_venc_vo_case(vs_vii_vpp_mode_e vii_vpp_mode)
     usleep(100000); 
 
     /* 4. 获取 VO 配置并启动 */
-    sample_vio_get_vo_cfg(NULL, vo_cfg);
+    sample_vio_get_vo_cfg(&img_size, vo_cfg);
 
     // DSP Init for MIPI
     if (vo_cfg[0].enable && vo_cfg[0].vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
