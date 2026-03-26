@@ -364,24 +364,24 @@ static void sample_common_vo_hdmi_user_timing_get(vs_vo_dev_attr_s *attr, vs_vo_
 
 void sample_common_vo_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
 {
-    /* user defined vo timing, especially used when the interface is mipi-tx(1080*1920P60) */
+    /* user defined vo timing, especially used when the interface is mipi-tx(1920*1080) */
     attr->interface_output = E_VO_OUTPUT_TYPE_USER;
-    attr->timing_info.hactive = 1280;
-    attr->timing_info.hfp = 63;
-    attr->timing_info.hbp = 13;
-    attr->timing_info.hpw = 9;
+    attr->timing_info.hactive = 1920;
+    attr->timing_info.hfp = 64;
+    attr->timing_info.hbp = 32;
+    attr->timing_info.hpw = 32;
     attr->timing_info.hsync_polarity = 1;
-    attr->timing_info.vactive = 960;
-    attr->timing_info.vfp = 18;
-    attr->timing_info.vbp = 8;
-    attr->timing_info.vpw = 4;
+    attr->timing_info.vactive = 1080;
+    attr->timing_info.vfp = 16;
+    attr->timing_info.vbp = 14;
+    attr->timing_info.vpw = 2;
     attr->timing_info.vsync_polarity = 1;
     attr->timing_info.data_polarity = 1;
     attr->timing_info.interlaced_output = 0;
-    // pixel_clk_rate = 1365 × 990 × 60 = 81,081,000 Hz
-    // XJT Note: Here total need set as 27MHz * 44 = 1188MHz
-    clk->pixel_clk_rate = 79200000UL;
-    clk->clk_div = 15;
+    
+    // Pixel Clock: 1188MHz / 9 = 132000000 Hz (Very close to rockchip's 133.92M)
+    clk->pixel_clk_rate = 132000000UL;
+    clk->clk_div = 9;
 }
 
 static vs_void_t sample_common_vo_intf_user_timing_get(sample_vo_cfg_s *p_vo_config)
@@ -1011,8 +1011,8 @@ vs_void_t sample_common_wbc_size_get(sample_vo_cfg_s* p_vo_config, vs_size_s* si
 
         if (p_vo_config->vo_output == E_VO_OUTPUT_TYPE_USER
             && p_vo_config->vo_intf_type == E_VO_INTERFACE_TYPE_MIPI) {
-            size->width = 1080;
-            size->height = 1920;
+            size->width = 1920;
+            size->height = 1080;
         }
     }
 }

@@ -30,8 +30,8 @@
 #include "vs_mal_vpp.h"
 
 // 固定配置参数
-#define DISPLAY_WIDTH 1280
-#define DISPLAY_HEIGHT 960
+#define DISPLAY_WIDTH 1920
+#define DISPLAY_HEIGHT 1080
 #define FB_ID 0
 #define LAYER_POS_X 0
 #define LAYER_POS_Y 0

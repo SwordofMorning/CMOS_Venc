@@ -18,6 +18,42 @@
 #include "sample_common.h"
 #include "vs_mal_regtools.h"
 
+// DCS
+#define INIT_AND_SEND_WR_CMD_V0(wr, type, data0, data1) \
+	do { \
+		(wr).p_data = VS_NULL; \
+		(wr).data_type = (type); \
+		(wr).data = ((data0) & 0xff) | (((data1) & 0xff) << 8); \
+		if (vs_mal_mipi_tx_cmd_write(0, &(wr))) { \
+			printf("%d: vs_mal_mipi_tx_cmd_write failed!\n", __LINE__); \
+			return -1; \
+		} \
+	} while (0)
+
+// DCS (0x39)
+#define INIT_AND_SEND_LONG_CMD_V0(wr, type, len, array) \
+	do { \
+		(wr).p_data = (void *)(array); \
+		(wr).data_type = (type); \
+		(wr).data = (len); \
+		if (vs_mal_mipi_tx_cmd_write(0, &(wr))) { \
+			printf("%d: vs_mal_mipi_tx_cmd_write long packet failed!\n", __LINE__); \
+			return -1; \
+		} \
+	} while (0)
+
+// DCS (0x05)
+#define INIT_AND_SEND_SHORT_CMD_NP_V0(wr, type, cmd) \
+	do { \
+		(wr).p_data = VS_NULL; \
+		(wr).data_type = (type); \
+		(wr).data = (cmd); \
+		if (vs_mal_mipi_tx_cmd_write(0, &(wr))) { \
+			printf("%d: vs_mal_mipi_tx_cmd_write NP failed!\n", __LINE__); \
+			return -1; \
+		} \
+	} while (0)
+
 #define DPHY_DIV_UPPER_LIMIT	8000
 #define DPHY_DIV_LOWER_LIMIT	2000
 #define MIN_OUTPUT_FREQ		80
@@ -188,27 +224,25 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 	vs_int32_t ret;
 	vs_mipi_tx_config_s config = {};
 
-	// PHY Rate = (pixel_clk_rate × 24 × 1) / 3 / 2(ddr), *2(mbps)
-	int phy_rate = 698;
-	int mode = E_NON_BURST_MODE_SYNC_PULSES;
+	// PHY Rate = (pixel_clk_rate * 24 bit) / 4 lane = (132 * 24) / 4 = 792 Mbps
+	int phy_rate = 792;
+	int mode = E_BURST_MODE;   // 对应 DT 中的 MIPI_DSI_MODE_VIDEO_BURST
 
 	config.phy_data_rate = phy_rate;
-	// pixel_clk_rate = 1365 × 990 × 59.94 ≈ 81,000,000 Hz
-	config.pixel_clk = 81000;
-	config.lanes = 3;
+	config.pixel_clk = 132000;
+	config.lanes = 4;
 	config.pixel_format = E_MIPI_TX_PIXEL_RGB888;
 	config.tx_mode = E_MIPI_TX_MODE_DSI_VIDEO;
 	config.video_mode = mode;
-	config.sync_info.packet_size = 1280;
-	config.sync_info.hpw = 9;
-	config.sync_info.hbp = 13;
-	config.sync_info.htotal = 1365;
-	config.sync_info.vactive = 960;
-	config.sync_info.vbp = 8;
-	config.sync_info.vfp = 18;
-	config.sync_info.vpw = 4;
-
-	// mipitx_timing_get(&config, vo_output, timing_info, clk_info, mipitx_phy_rate);
+	
+	config.sync_info.packet_size = 1920;
+	config.sync_info.hpw = 32;
+	config.sync_info.hbp = 32;
+	config.sync_info.htotal = 2048; // 1920+32+32+64
+	config.sync_info.vactive = 1080;
+	config.sync_info.vbp = 14;
+	config.sync_info.vfp = 16;
+	config.sync_info.vpw = 2;
 
 	ret = vs_mal_mipi_tx_config(0, &config);
 	if (ret)
@@ -369,190 +403,67 @@ static int spi_write_reg(vs_uint8_t reg, vs_uint8_t val)
 
 static int panel_init(vs_bool_t bist)
 {
-    int ret = 0;
+	vs_mipi_tx_cmd_write_s wr;
+	
+	printf("Starting 1920x1080 DCS panel initialization...\n");
 
-    // 初始启动序列
-    ret |= spi_write_reg(0x00, 0x02);
-    ret |= spi_write_reg(0x01, 0x43);
-    usleep(200);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x03, 0x80);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x53, 0x29);
+	
+	{ vs_uint8_t p[] = {0x51, 0xFF, 0x01}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x03, 0x00);
+	
+	{ vs_uint8_t p[] = {0x80, 0x00, 0xE0, 0xE0, 0x0E, 0x00, 0x31}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0x81, 0x03, 0x04, 0x00, 0x10, 0x00, 0x10, 0x00}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0x82, 0x03, 0x04, 0x00, 0x10, 0x00, 0x10, 0x01}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x35, 0x00);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x26, 0x20);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x69, 0x00);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6B, 0x00);
+	
+	{ vs_uint8_t p[] = {0xF0, 0xAA, 0x11}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC0, 0x00);
+	
+	{ vs_uint8_t p[] = {0xC2, 0x03, 0xFF, 0x03, 0xFF, 0x03, 0xFF, 0x03, 0xFF, 0x82, 0x00, 0x00}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0xF0, 0xAA, 0x12}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0xBF, 0x37, 0xA9}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0xFF, 0x5A, 0x80}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x2F);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF2, 0x01);
+	
+	{ vs_uint8_t p[] = {0xFF, 0x5A, 0x81}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x17);
+	
+	{ vs_uint8_t p[] = {0xF9, 0x5E, 0x62, 0x66, 0x6A, 0x6F, 0x73, 0x77, 0x7B, 0x7F, 0x84, 0x88, 0x8C, 0x90}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0xFF, 0x5A, 0x81}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x05);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF2, 0x22);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x0A);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF2, 0x00);
 
-    ret |= spi_write_reg(0x01, 0x4b);
-    // 主要配置序列
-    ret |= spi_write_reg(0x02, 0x4f);
-    ret |= spi_write_reg(0x03, 0x02);
-    ret |= spi_write_reg(0x04, 0xd0);
-    ret |= spi_write_reg(0x05, 0x00);
-    ret |= spi_write_reg(0x06, 0x4f);
-    ret |= spi_write_reg(0x07, 0x03);
-    ret |= spi_write_reg(0x08, 0x00);
-    ret |= spi_write_reg(0x09, 0x02);
-    ret |= spi_write_reg(0x0a, 0x49);
-    ret |= spi_write_reg(0x0b, 0x00);
-    ret |= spi_write_reg(0x0c, 0x41);
-    ret |= spi_write_reg(0x0d, 0x00);
-    ret |= spi_write_reg(0x0e, 0x00);
-    ret |= spi_write_reg(0x0f, 0x00);
-    ret |= spi_write_reg(0x10, 0x00);
-    ret |= spi_write_reg(0x11, 0x00);
-    ret |= spi_write_reg(0x12, 0x00);
-    ret |= spi_write_reg(0x13, 0x00);
-    ret |= spi_write_reg(0x14, 0x12);
-    ret |= spi_write_reg(0x15, 0x19);
-    
-    ret |= spi_write_reg(0x16, 0x60); 
-    ret |= spi_write_reg(0x17, 0xe0);  
-    
-    ret |= spi_write_reg(0x18, 0x99);
-    ret |= spi_write_reg(0x19, 0x8f); 
-    ret |= spi_write_reg(0x1a, 0x00);
-    ret |= spi_write_reg(0x1b, 0x7f);
-    ret |= spi_write_reg(0x1c, 0x0e);
-    ret |= spi_write_reg(0x1d, 0x50);
-    ret |= spi_write_reg(0x1e, 0x64);
-    ret |= spi_write_reg(0x1f, 0xf3);
-    ret |= spi_write_reg(0x20, 0x43);
-    ret |= spi_write_reg(0x21, 0x70);
-    ret |= spi_write_reg(0x22, 0x9b);
-    ret |= spi_write_reg(0x23, 0xd1);
-    ret |= spi_write_reg(0x24, 0x1e);
-    ret |= spi_write_reg(0x25, 0x81);
-    ret |= spi_write_reg(0x26, 0xd8);
-    ret |= spi_write_reg(0x27, 0x1b);
-    ret |= spi_write_reg(0x28, 0x5e);
-    ret |= spi_write_reg(0x29, 0x7d);
-    ret |= spi_write_reg(0x2a, 0xa4);
-    ret |= spi_write_reg(0x2b, 0xd3);
-    ret |= spi_write_reg(0x2c, 0x3e);
-    ret |= spi_write_reg(0x2d, 0xd3);
-    ret |= spi_write_reg(0x2e, 0x18);
-    ret |= spi_write_reg(0x2f, 0x52);
-    ret |= spi_write_reg(0x30, 0x69);
-    ret |= spi_write_reg(0x31, 0x94);
-    ret |= spi_write_reg(0x32, 0xa8);
-    ret |= spi_write_reg(0x33, 0xd9);
-    ret |= spi_write_reg(0x34, 0x21);
-    ret |= spi_write_reg(0x35, 0x00);
-    ret |= spi_write_reg(0x36, 0x5d);
-    ret |= spi_write_reg(0x37, 0x78);
-    ret |= spi_write_reg(0x38, 0x59);
-    ret |= spi_write_reg(0x39, 0x80);
-    ret |= spi_write_reg(0x3a, 0x80);
-    ret |= spi_write_reg(0x3b, 0x80);
-    ret |= spi_write_reg(0x3c, 0x80);
-    ret |= spi_write_reg(0x3d, 0x00);
-    ret |= spi_write_reg(0x3e, 0x3b);
-    ret |= spi_write_reg(0x3f, 0x72);
-    ret |= spi_write_reg(0x40, 0x40);
-    ret |= spi_write_reg(0x41, 0xd0);
-    ret |= spi_write_reg(0x42, 0x3d);
-    ret |= spi_write_reg(0x43, 0x30);
-    ret |= spi_write_reg(0x44, 0x02);
-    ret |= spi_write_reg(0x45, 0x7b);
-    ret |= spi_write_reg(0x46, 0x0a);
-    ret |= spi_write_reg(0x47, 0x59);
-    ret |= spi_write_reg(0x48, 0x77);
-    ret |= spi_write_reg(0x49, 0x9a);
-    ret |= spi_write_reg(0x4a, 0xa7);
-    ret |= spi_write_reg(0x4b, 0x0f);
-    ret |= spi_write_reg(0x4c, 0xaf);
-    ret |= spi_write_reg(0x4d, 0x66);
-    ret |= spi_write_reg(0x4e, 0x68);
-    ret |= spi_write_reg(0x4f, 0xff);
-    ret |= spi_write_reg(0x50, 0xff);
-    ret |= spi_write_reg(0x51, 0x92);
-    ret |= spi_write_reg(0x52, 0x93);
-    ret |= spi_write_reg(0x53, 0x0a);
-    ret |= spi_write_reg(0x54, 0x58);
-    ret |= spi_write_reg(0x55, 0x78);
-    ret |= spi_write_reg(0x56, 0x99);
-    ret |= spi_write_reg(0x57, 0xa8);
-    ret |= spi_write_reg(0x58, 0xff);
-    ret |= spi_write_reg(0x59, 0xff);
-    ret |= spi_write_reg(0x5a, 0xff);
-    ret |= spi_write_reg(0x5b, 0xff);
-    ret |= spi_write_reg(0x5c, 0x20);
-    ret |= spi_write_reg(0x5d, 0x06);
-    ret |= spi_write_reg(0x5e, 0x18);
-    ret |= spi_write_reg(0x5f, 0x19);
-    ret |= spi_write_reg(0x60, 0xa8);
-    ret |= spi_write_reg(0x61, 0xf0);
-    ret |= spi_write_reg(0x62, 0x00);
-    ret |= spi_write_reg(0x63, 0x00);
-    ret |= spi_write_reg(0x64, 0x76);
-    ret |= spi_write_reg(0x65, 0xec);
-    ret |= spi_write_reg(0x66, 0x05);
-    ret |= spi_write_reg(0x67, 0x5a);
-    ret |= spi_write_reg(0x68, 0x85);
-    ret |= spi_write_reg(0x69, 0xc0);
-    ret |= spi_write_reg(0x6a, 0xfb);
-    ret |= spi_write_reg(0x6b, 0x36);
-    ret |= spi_write_reg(0x6c, 0x71);
-    ret |= spi_write_reg(0x6d, 0xac);
-    ret |= spi_write_reg(0x6e, 0xe7);
-    ret |= spi_write_reg(0x6f, 0x22);
-    ret |= spi_write_reg(0x70, 0x5d);
-    ret |= spi_write_reg(0x71, 0x00);
-    ret |= spi_write_reg(0x72, 0x1a);
-    ret |= spi_write_reg(0x73, 0x3c);
-    ret |= spi_write_reg(0x74, 0x72);
-    ret |= spi_write_reg(0x75, 0xe4);
-    ret |= spi_write_reg(0x76, 0x05);
-    ret |= spi_write_reg(0x77, 0x5a);
-    ret |= spi_write_reg(0x78, 0x86);
-    ret |= spi_write_reg(0x79, 0xc1);
-    ret |= spi_write_reg(0x7a, 0xfc);
-    ret |= spi_write_reg(0x7b, 0x37);
-    ret |= spi_write_reg(0x7c, 0x72);
-    ret |= spi_write_reg(0x7d, 0xad);
-    ret |= spi_write_reg(0x7e, 0xe8);
-    ret |= spi_write_reg(0x7f, 0x23);
-    ret |= spi_write_reg(0x80, 0x5e);
-    ret |= spi_write_reg(0x81, 0x22);
-    ret |= spi_write_reg(0x82, 0x72);
-    ret |= spi_write_reg(0x83, 0xa7);
-    ret |= spi_write_reg(0x84, 0x73);
-    ret |= spi_write_reg(0x85, 0xa8);
-    ret |= spi_write_reg(0x86, 0x02);
-    ret |= spi_write_reg(0x87, 0x00);
-    ret |= spi_write_reg(0x88, 0x00);
-    ret |= spi_write_reg(0x89, 0x00);
-    ret |= spi_write_reg(0x8a, 0x95);
-    ret |= spi_write_reg(0x8b, 0x00);
-    ret |= spi_write_reg(0x8c, 0x00);
-    ret |= spi_write_reg(0x8d, 0x05);
-    ret |= spi_write_reg(0x8e, 0x98);
-    ret |= spi_write_reg(0x8f, 0x94);
-    ret |= spi_write_reg(0x90, 0x13);
-    ret |= spi_write_reg(0x91, 0x94);
-    ret |= spi_write_reg(0x92, 0xe6);
-    ret |= spi_write_reg(0x93, 0x4a);
-    ret |= spi_write_reg(0x94, 0x0e);
-    ret |= spi_write_reg(0x95, 0xe1);
-    ret |= spi_write_reg(0x96, 0x8a);
-    ret |= spi_write_reg(0x97, 0x8d);
-    ret |= spi_write_reg(0x98, 0x00);
-    ret |= spi_write_reg(0x99, 0x00);
-    ret |= spi_write_reg(0x9a, 0x00);
-    ret |= spi_write_reg(0x9b, 0x00);
-    ret |= spi_write_reg(0x9c, 0x01);
-    ret |= spi_write_reg(0x9d, 0x00);
-    ret |= spi_write_reg(0x9e, 0x00);
-    ret |= spi_write_reg(0x9f, 0x02);
-    ret |= spi_write_reg(0xa0, 0xc0);
-    ret |= spi_write_reg(0xa1, 0x00);
+	// DTS 中的 05 14 01 11 代表发送指令 0x11，并延迟 0x14 (20 ms)
+	INIT_AND_SEND_SHORT_CMD_NP_V0(wr, 0x05, 0x11);
+	usleep(20 * 1000);
 
-	usleep(100);
-	// SOT (Start of Transmission) 配置
-	ret |= spi_write_reg(0x16, 0x60);
-	ret |= spi_write_reg(0x17, 0xe0);
-    
-    if (ret != 0) {
-        printf("Panel initialization failed\n");
-        return -1;
-    }
-    
-    printf("Panel initialization completed successfully\n");
-    return 0;
+	// DTS 中的 05 64 01 29 代表发送指令 0x29，并延迟 0x64 (100 ms)
+	INIT_AND_SEND_SHORT_CMD_NP_V0(wr, 0x05, 0x29);
+	usleep(100 * 1000);
+
+	// 额外延迟 20 ms
+	usleep(20 * 1000);
+
+	{ vs_uint8_t p[] = {0xF0, 0xAA, 0x11}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC0, 0xFF);
+
+	printf("Panel initialization completed successfully\n");
+	return 0;
 }
 
 vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_info,
@@ -568,29 +479,15 @@ vs_int32_t sample_common_mipitx_start(vs_vo_output_type_e vo_output, vs_vo_timin
 		return -1;
 	}
 
-	// system("echo 1 > /sys/class/gpio/gpio419/value");
-
-	// system("/root/app/oled_pwr.sh &");
-
 	ret = mipitx_config(vo_output, timing_info, clk_info, mipitx_phy_rate);
 	if (ret) {
 		printf("mipitx_config failed!\n");
 		goto exit;
 	}
 
-	// ret = panel_backlight_set(5);
-	// if (ret) {
-	// 	printf("panel_backlight_set failed!\n");
-	// 	goto exit;
-	// }
-
-	// ret = panel_reset();
-	// if (ret) {
-	// 	printf("panel_reset failed!\n");
-	// 	goto exit;
-	// }
-
 	system("echo on > /sys/devices/platform/gpio-controller/panel_reset");
+
+	sleep(1);
 	
 	ret = panel_init(VS_FALSE);
 	if (ret) {
