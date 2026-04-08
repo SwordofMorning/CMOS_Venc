@@ -226,7 +226,7 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 
 	// PHY Rate = (pixel_clk_rate * 24 bit) / 4 lane = (132 * 24) / 4 = 792 Mbps
 	int phy_rate = 792;
-	int mode = E_BURST_MODE;   // 对应 DT 中的 MIPI_DSI_MODE_VIDEO_BURST
+	int mode = E_BURST_MODE;
 
 	config.phy_data_rate = phy_rate;
 	config.pixel_clk = 132000;
@@ -236,13 +236,13 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 	config.video_mode = mode;
 	
 	config.sync_info.packet_size = 1920;
-	config.sync_info.hpw = 32;
-	config.sync_info.hbp = 32;
-	config.sync_info.htotal = 2048; // 1920+32+32+64
+	config.sync_info.hpw = 16;
+	config.sync_info.hbp = 24;
+	config.sync_info.htotal = 2000;   // H_Total = 1920 + 16 + 24 + 40
 	config.sync_info.vactive = 1080;
-	config.sync_info.vbp = 14;
-	config.sync_info.vfp = 16;
 	config.sync_info.vpw = 2;
+	config.sync_info.vbp = 8;
+	config.sync_info.vfp = 10;        // V_Total = 1080 + 2 + 8 + 10 = 1100
 
 	ret = vs_mal_mipi_tx_config(0, &config);
 	if (ret)
