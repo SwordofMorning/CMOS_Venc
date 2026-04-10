@@ -245,6 +245,12 @@ static vs_mipi_rx_dev_attr_s s_bg1336_mipi_4lane_12bit_linear_attr = {
     .mipi_attr.crop_info = {VS_TRUE, {0, 0, 1280, 1024}},
 };
 
+static vs_mipi_rx_dev_attr_s s_bg0651_mipi_4lane_12bit_linear_attr = {
+    .mode = E_MODE_MIPI,
+    .mipi_attr.lane_type = E_MIPI_LANE4,
+    .mipi_attr.crop_info = {VS_TRUE, {0, 0, 800, 600}},
+};
+
 #ifdef EXT_SENSOR
 static vs_mipi_rx_dev_attr_s s_os08a10_mipi_4lane_10bit_8m_linear_attr = {
     .mode = E_MODE_MIPI,
@@ -896,6 +902,14 @@ static vs_isp_comm_attr_s s_gmax3809_9m_30fps_12bit_linear_isp_attr = {
 static vs_isp_comm_attr_s s_bg1336_100fps_12bit_linear_isp_attr = {
     .sensor_size = {1280, 1024},
     .frame_rate = 50,
+    .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
+    .wdr_mode = E_WDR_MODE_NONE,
+    .sensor_mode = 0,
+};
+
+static vs_isp_comm_attr_s s_bg0651_120fps_12bit_linear_isp_attr = {
+    .sensor_size = {800, 600},
+    .frame_rate = 120,
     .bayer_format = E_ISP_BAYER_FORMAT_RGGB,
     .wdr_mode = E_WDR_MODE_NONE,
     .sensor_mode = 0,
@@ -1668,6 +1682,12 @@ static sample_sensor_cfg_s s_sensor_cfg[] = {
         E_PIXEL_FORMAT_BAYER_12BPP,
         &s_bg1336_mipi_4lane_12bit_linear_attr,
         &s_bg1336_100fps_12bit_linear_isp_attr
+    },
+    {"bg0651", BG0651_MIPI_120FPS_12BIT, "BG0651_MIPI_100FPS_12BIT",
+        E_LANE_MODE_4_2_2,
+        E_PIXEL_FORMAT_BAYER_12BPP,
+        &s_bg0651_mipi_4lane_12bit_linear_attr,
+        &s_bg0651_120fps_12bit_linear_isp_attr
     },
 #ifdef EXT_SENSOR
     // os08a10
