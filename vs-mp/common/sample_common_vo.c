@@ -364,19 +364,19 @@ static void sample_common_vo_hdmi_user_timing_get(vs_vo_dev_attr_s *attr, vs_vo_
 
 void sample_common_vo_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
 {
-    /* user defined vo timing, especially used when the interface is mipi-tx(1920*1080) */
+    /* user defined vo timing, especially used when the interface is mipi-tx(1440*810) */
     attr->interface_output = E_VO_OUTPUT_TYPE_USER;
     
-    attr->timing_info.hactive = 1920;
-    attr->timing_info.hfp = 40;
-    attr->timing_info.hbp = 24;
-    attr->timing_info.hpw = 16;
+    attr->timing_info.hactive = 1440;
+    attr->timing_info.hfp = 108;
+    attr->timing_info.hbp = 168;
+    attr->timing_info.hpw = 44;
     
     attr->timing_info.hsync_polarity = 1;
     
-    attr->timing_info.vactive = 1080;
-    attr->timing_info.vfp = 10;
-    attr->timing_info.vbp = 8;
+    attr->timing_info.vactive = 810;
+    attr->timing_info.vfp = 15;
+    attr->timing_info.vbp = 7;
     attr->timing_info.vpw = 2;
     
     attr->timing_info.vsync_polarity = 1;
@@ -384,7 +384,7 @@ void sample_common_vo_timing_get(vs_vo_dev_attr_s *attr, vs_vo_clk_info_s *clk)
     attr->timing_info.interlaced_output = 0;
     
     // Pixel Clock: 1188MHz / 9 = 132000000 Hz 
-    // 132,000,000 / (2000 * 1100) = 60.000 Hz
+    // Frame Rate = 132,000,000 / (1760 * 834) = 89.92 Hz (~90Hz)
     clk->pixel_clk_rate = 132000000UL;
     clk->clk_div = 9;
 }

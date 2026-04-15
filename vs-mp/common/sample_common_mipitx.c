@@ -235,14 +235,14 @@ static int mipitx_config(vs_vo_output_type_e vo_output, vs_vo_timing_s *timing_i
 	config.tx_mode = E_MIPI_TX_MODE_DSI_VIDEO;
 	config.video_mode = mode;
 	
-	config.sync_info.packet_size = 1920;
-	config.sync_info.hpw = 16;
-	config.sync_info.hbp = 24;
-	config.sync_info.htotal = 2000;   // H_Total = 1920 + 16 + 24 + 40
-	config.sync_info.vactive = 1080;
+	config.sync_info.packet_size = 1440;
+	config.sync_info.hpw = 44;
+	config.sync_info.hbp = 168;
+	config.sync_info.htotal = 1760;   // H_Total = 1440 + 44 + 168 + 108 = 1760
+	config.sync_info.vactive = 810;
 	config.sync_info.vpw = 2;
-	config.sync_info.vbp = 8;
-	config.sync_info.vfp = 10;        // V_Total = 1080 + 2 + 8 + 10 = 1100
+	config.sync_info.vbp = 7;
+	config.sync_info.vfp = 15;        // V_Total = 810 + 2 + 7 + 15 = 834
 
 	ret = vs_mal_mipi_tx_config(0, &config);
 	if (ret)
@@ -405,7 +405,7 @@ static int panel_init(vs_bool_t bist)
 {
 	vs_mipi_tx_cmd_write_s wr;
 	
-	printf("Starting 1920x1080 DCS panel initialization...\n");
+	printf("Starting 1440x810 DCS panel initialization (Internal scale to 1080p)...\n");
 
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x03, 0x80);
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x53, 0x29);
@@ -414,52 +414,54 @@ static int panel_init(vs_bool_t bist)
 	
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x03, 0x00);
 	
-	{ vs_uint8_t p[] = {0x80, 0x00, 0xE0, 0xE0, 0x0E, 0x00, 0x31}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
-	{ vs_uint8_t p[] = {0x81, 0x03, 0x04, 0x00, 0x10, 0x00, 0x10, 0x00}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
-	{ vs_uint8_t p[] = {0x82, 0x03, 0x04, 0x00, 0x10, 0x00, 0x10, 0x01}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0x80, 0x00, 0x68, 0xE0, 0x0E, 0x00, 0x31}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0x81, 0x03, 0x56, 0x00, 0x09, 0x00, 0x0F, 0x00}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0x82, 0x03, 0x56, 0x00, 0x09, 0x00, 0x0F, 0x01}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
 	
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x35, 0x00);
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x26, 0x20);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x69, 0x00);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x6B, 0x00);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x69, 0x01);
 	
 	{ vs_uint8_t p[] = {0xF0, 0xAA, 0x11}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
 	
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC0, 0x00);
 	
-	{ vs_uint8_t p[] = {0xC2, 0x03, 0xFF, 0x03, 0xFF, 0x03, 0xFF, 0x03, 0xFF, 0x82, 0x00, 0x00}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	{ vs_uint8_t p[] = {0xC2, 0x03, 0xFF, 0x03, 0xFF, 0x03, 0xFF, 0x03, 0xFF, 0x82}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	// CMD2, P0
 	{ vs_uint8_t p[] = {0xF0, 0xAA, 0x12}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
 	{ vs_uint8_t p[] = {0xBF, 0x37, 0xA9}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	// 1440x810_90hz
+	{ vs_uint8_t p[] = {0xC2, 0xC1, 0x03, 0x90, 0x00, 0x0D, 0x00, 0xE4}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
+	
+	// CMD3, P0
 	{ vs_uint8_t p[] = {0xFF, 0x5A, 0x80}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
 	
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x2F);
-	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF2, 0x01);
+	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF2, 0x00);
 	
+	// CMD3, P1
 	{ vs_uint8_t p[] = {0xFF, 0x5A, 0x81}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
 	
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x17);
 	
 	{ vs_uint8_t p[] = {0xF9, 0x5E, 0x62, 0x66, 0x6A, 0x6F, 0x73, 0x77, 0x7B, 0x7F, 0x84, 0x88, 0x8C, 0x90}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
-	{ vs_uint8_t p[] = {0xFF, 0x5A, 0x81}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
 	
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x05);
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF2, 0x22);
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0x65, 0x0A);
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xF2, 0x00);
 
-	// DTS 中的 05 14 01 11 代表发送指令 0x11，并延迟 0x14 (20 ms)
-	INIT_AND_SEND_SHORT_CMD_NP_V0(wr, 0x05, 0x11);
 	usleep(20 * 1000);
-
-	// DTS 中的 05 64 01 29 代表发送指令 0x29，并延迟 0x64 (100 ms)
-	INIT_AND_SEND_SHORT_CMD_NP_V0(wr, 0x05, 0x29);
+	INIT_AND_SEND_SHORT_CMD_NP_V0(wr, 0x05, 0x11);
+	
 	usleep(100 * 1000);
-
-	// 额外延迟 20 ms
+	INIT_AND_SEND_SHORT_CMD_NP_V0(wr, 0x05, 0x29);
+	
 	usleep(20 * 1000);
 
 	{ vs_uint8_t p[] = {0xF0, 0xAA, 0x11}; INIT_AND_SEND_LONG_CMD_V0(wr, 0x39, sizeof(p), p); }
-	
 	INIT_AND_SEND_WR_CMD_V0(wr, 0x15, 0xC0, 0xFF);
 
 	printf("Panel initialization completed successfully\n");

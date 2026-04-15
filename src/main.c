@@ -30,12 +30,12 @@
 #include "vs_mal_vpp.h"
 
 // 固定配置参数
-#define DISPLAY_WIDTH 1920
-#define DISPLAY_HEIGHT 1080
+#define DISPLAY_WIDTH 1440
+#define DISPLAY_HEIGHT 810
 #define FB_ID 0
 #define LAYER_POS_X 0
 #define LAYER_POS_Y 0
-#define LOGO_FILE "logo.bmp"
+#define LOGO_FILE "1440.bmp"
 
 // VSSDK Define
 #define FBIOPUT_SHOW_VS_FB          _IOW('F', 0x101, int)
@@ -454,8 +454,8 @@ void print_usage(const char* prog_name) {
     printf("Usage: %s [logo_file]\n", prog_name);
     printf("logo_file: BMP file to display (default: logo.bmp)\n");
     printf("\nThis program initializes VO/MIPI-TX and displays a static BMP logo.\n");
-    printf("Fixed configuration: 1280x960, fb0, position (0,0)\n");
-    printf("BMP file must be 1280x960, 24-bit or 32-bit format\n");
+    printf("Fixed configuration: 1440x810, fb0, position (0,0)\n");
+    printf("BMP file must be 1440x810, 24-bit or 32-bit format\n");
 }
 
 int main(int argc, char *argv[])
